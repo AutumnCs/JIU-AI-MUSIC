@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGlobalStore } from '@/stores/globalStore';
 import { BIRDS } from '@/lib/constants';
+import { BirdPortrait } from '@/components/collection/BirdPortrait';
 
 const QUICK_QUESTIONS = [
   '什么是音高？',
@@ -93,9 +94,10 @@ export function BirdCompanion() {
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="w-14 h-14 rounded-full bg-white shadow-lg border-2 border-orange-200 flex items-center justify-center text-2xl"
+        className="w-14 h-14 overflow-hidden rounded-full bg-gradient-to-br from-orange-50 to-emerald-50 shadow-lg border-2 border-orange-200 flex items-center justify-center"
+        aria-label={isOpen ? '收起伴学助手' : `向${bird.name}提问`}
       >
-        🐦
+        <BirdPortrait bird={bird} className="h-full w-full" />
       </motion.button>
     </div>
   );

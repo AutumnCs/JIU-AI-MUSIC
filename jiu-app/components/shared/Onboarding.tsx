@@ -10,7 +10,11 @@ const pages = [
   { title: '图鉴', desc: '收集可爱的鸟类伙伴', icon: '🐦' },
 ];
 
-export function Onboarding() {
+interface OnboardingProps {
+  onComplete: () => void;
+}
+
+export function Onboarding({ onComplete }: OnboardingProps) {
   const [page, setPage] = useState(0);
   const [agreed, setAgreed] = useState(false);
   const { setOnboarded } = useGlobalStore();
@@ -69,6 +73,7 @@ export function Onboarding() {
             if (isLast) {
               if (!agreed) return;
               setOnboarded();
+              onComplete();
             } else {
               setPage(page + 1);
             }

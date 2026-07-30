@@ -39,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <title>啾 — AI 音乐创编</title>
       </head>
       <body className="bg-[#FFF8F0] max-w-lg mx-auto relative min-h-screen">
-        {showOnboarding && <Onboarding />}
+        {showOnboarding && <Onboarding onComplete={() => setShowOnboarding(false)} />}
         {children}
         <BottomNav />
         <BirdCompanion />

@@ -109,6 +109,8 @@ export const useGlobalStore = create<GlobalState>((set, get) => ({
           },
           userId: uid,
         });
+        checkBirdUnlocks(get(), set);
+        persistState(get());
         return;
       } catch {}
     }
