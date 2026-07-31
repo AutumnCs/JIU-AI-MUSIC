@@ -12,8 +12,9 @@ export function BirdPortrait({
   reveal = 1,
   className = '',
 }: BirdPortraitProps) {
+  const portraitIndex = bird.atlasPosition.row * 3 + bird.atlasPosition.column + 1;
   const portraitStyle: CSSProperties = {
-    backgroundImage: `url('/images/birds/${bird.id}.png')`,
+    backgroundImage: `url('/images/birds/${portraitIndex}.png')`,
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat',
     backgroundSize: 'contain',
