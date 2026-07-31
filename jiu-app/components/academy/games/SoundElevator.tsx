@@ -24,6 +24,9 @@ export function SoundElevator({
   const [isPlaying, setIsPlaying] = useState(false);
   const [canAnswer, setCanAnswer] = useState(false);
   const [activeSoundIndex, setActiveSoundIndex] = useState<number | null>(null);
+  const [playbackMode, setPlaybackMode] = useState<
+    'sequence' | 'single' | null
+  >(null);
   const playbackTimerRef = useRef<number | null>(null);
   const [questions] = useState(() =>
     Array.from({ length: 3 }, () => {
@@ -46,6 +49,7 @@ export function SoundElevator({
     setCanAnswer(false);
     const question = questions[round];
     setIsPlaying(true);
+    setPlaybackMode('sequence');
     setActiveSoundIndex(0);
     playTone(question.first, 0.4);
     playbackTimerRef.current = window.setTimeout(() => {
@@ -54,6 +58,7 @@ export function SoundElevator({
       playbackTimerRef.current = window.setTimeout(() => {
         setIsPlaying(false);
         setActiveSoundIndex(null);
+        setPlaybackMode(null);
         setCanAnswer(true);
         playbackTimerRef.current = null;
       }, 420);
@@ -71,11 +76,13 @@ export function SoundElevator({
       const frequency = soundIndex === 0 ? question.first : question.second;
       setCanAnswer(false);
       setIsPlaying(true);
+      setPlaybackMode('single');
       setActiveSoundIndex(soundIndex);
       playTone(frequency, 0.4);
       playbackTimerRef.current = window.setTimeout(() => {
         setIsPlaying(false);
         setActiveSoundIndex(null);
+        setPlaybackMode(null);
         setCanAnswer(true);
         playbackTimerRef.current = null;
       }, 420);
@@ -215,7 +222,13 @@ export function SoundElevator({
           <span className="text-base" aria-hidden="true">
             {isPlaying ? '🔊' : '▶️'}
           </span>
-          {isPlaying ? '正在播放两个声音…' : '再听一次'}
+          {isPlaying
+            ? playbackMode === 'single'
+              ? activeSoundIndex === 0
+                ? '正在播放起始音…'
+                : '正在播放目标音…'
+              : '正在播放两个声音…'
+            : '再听一次'}
         </button>
       </div>
 
