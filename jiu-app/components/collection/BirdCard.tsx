@@ -46,16 +46,15 @@ export function BirdCard({ bird, onOpen }: BirdCardProps) {
 
       <div className="block w-full text-left">
         {!isUnlocked && bird.fragmentType && (
-          <div className="flex h-9 items-center justify-end px-3">
-            <span className="rounded-full bg-[#FFF4E6] px-2.5 py-1 text-[10px] font-bold text-[#765A43]">
-              {FRAGMENT_MARKS[bird.fragmentType]} {bird.fragmentNeeded} 枚
-            </span>
-          </div>
+          <span className="absolute right-3 top-3 z-10 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold text-[#765A43] shadow-sm">
+            {FRAGMENT_MARKS[bird.fragmentType]} {bird.fragmentNeeded} 枚
+          </span>
         )}
 
         <BirdPortrait
           bird={bird}
           reveal={isUnlocked ? 1 : 0}
+          placement={isUnlocked ? 'center' : 'locked-card'}
           className={`aspect-[1/1.04] w-full ${
             isUnlocked
               ? 'bg-gradient-to-b from-[#FFF7DC] to-[#FFF0DE]'

@@ -5,19 +5,22 @@ interface BirdPortraitProps {
   bird: Bird;
   reveal?: number;
   className?: string;
+  placement?: 'center' | 'locked-card';
 }
 
 export function BirdPortrait({
   bird,
   reveal = 1,
   className = '',
+  placement = 'center',
 }: BirdPortraitProps) {
   const portraitIndex = bird.atlasPosition.row * 3 + bird.atlasPosition.column + 1;
+  const isLockedCard = placement === 'locked-card';
   const portraitStyle: CSSProperties = {
     backgroundImage: `url('/images/birds/${portraitIndex}.png')`,
-    backgroundPosition: 'center',
+    backgroundPosition: isLockedCard ? '34% 72%' : 'center',
     backgroundRepeat: 'no-repeat',
-    backgroundSize: 'contain',
+    backgroundSize: isLockedCard ? '78% auto' : 'contain',
   };
   const safeReveal = Math.max(0, Math.min(reveal, 1));
 
