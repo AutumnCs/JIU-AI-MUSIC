@@ -44,21 +44,6 @@ export function BirdCard({ bird, onOpen }: BirdCardProps) {
         </div>
       )}
 
-      {!isUnlocked && hasFragments && (
-        <div className="absolute left-3 right-3 top-3 z-10">
-          <div className="mb-1 flex items-center justify-between text-[10px] font-bold text-[#59483A]">
-            <span>{FRAGMENT_MARKS[bird.fragmentType || '绒羽']} {bird.fragmentType}</span>
-            <span>{fragmentCount}/{bird.fragmentNeeded}</span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-white/70">
-            <div
-              className="h-full rounded-full bg-[#FF9F43] transition-[width] duration-700"
-              style={{ width: `${progress * 100}%` }}
-            />
-          </div>
-        </div>
-      )}
-
       {!canOpen && (
         <div className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/75 text-sm text-[#756B61] shadow-sm">
           <span aria-hidden="true">●</span>
@@ -86,6 +71,21 @@ export function BirdCard({ bird, onOpen }: BirdCardProps) {
         />
 
         <div className="min-h-[86px] px-3.5 pb-3.5 pt-2.5">
+          {!isUnlocked && hasFragments && (
+            <div className="mb-2 rounded-xl bg-[#FFF4E7] px-2.5 py-2">
+              <div className="flex items-center justify-between text-[9px] font-bold text-[#755C47]">
+                <span>{FRAGMENT_MARKS[bird.fragmentType || '绒羽']} {bird.fragmentType}</span>
+                <span>{fragmentCount}/{bird.fragmentNeeded}</span>
+              </div>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#E9DDD0]">
+                <div
+                  className="h-full rounded-full bg-[#FF9F43] transition-[width] duration-700"
+                  style={{ width: `${progress * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           <h3 className={`truncate text-[15px] font-extrabold ${
             canOpen ? 'text-[#2C3E50]' : 'text-[#8C857D]'
           }`}>
