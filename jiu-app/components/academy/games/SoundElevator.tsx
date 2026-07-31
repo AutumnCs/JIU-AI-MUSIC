@@ -23,6 +23,7 @@ export function SoundElevator({
   const [selectedAnswer, setSelectedAnswer] = useState<boolean | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [canAnswer, setCanAnswer] = useState(false);
+  const [activeSoundIndex, setActiveSoundIndex] = useState<number | null>(null);
   const playbackTimerRef = useRef<number | null>(null);
   const [questions] = useState(() =>
     Array.from({ length: 3 }, () => {
@@ -45,16 +46,42 @@ export function SoundElevator({
     setCanAnswer(false);
     const question = questions[round];
     setIsPlaying(true);
+    setActiveSoundIndex(0);
     playTone(question.first, 0.4);
     playbackTimerRef.current = window.setTimeout(() => {
+      setActiveSoundIndex(1);
       playTone(question.second, 0.4);
       playbackTimerRef.current = window.setTimeout(() => {
         setIsPlaying(false);
+        setActiveSoundIndex(null);
         setCanAnswer(true);
         playbackTimerRef.current = null;
       }, 420);
     }, 620);
   }, [questions, round]);
+
+  const playSoundCard = useCallback(
+    (soundIndex: number) => {
+      if (answered) return;
+      if (playbackTimerRef.current) {
+        window.clearTimeout(playbackTimerRef.current);
+      }
+
+      const question = questions[round];
+      const frequency = soundIndex === 0 ? question.first : question.second;
+      setCanAnswer(false);
+      setIsPlaying(true);
+      setActiveSoundIndex(soundIndex);
+      playTone(frequency, 0.4);
+      playbackTimerRef.current = window.setTimeout(() => {
+        setIsPlaying(false);
+        setActiveSoundIndex(null);
+        setCanAnswer(true);
+        playbackTimerRef.current = null;
+      }, 420);
+    },
+    [answered, questions, round],
+  );
 
   useEffect(() => {
     playQuestion();
@@ -119,26 +146,34 @@ export function SoundElevator({
           className="mb-2 grid grid-cols-2 gap-2 sm:mb-3"
           aria-label="声音播放顺序"
         >
-          <div
-            className={`rounded-xl border px-2.5 py-1.5 sm:px-3 sm:py-2 ${
-              isPlaying
-                ? 'border-orange-200 bg-orange-50'
-                : 'border-white/90 bg-white/70'
-            }`}
+          <button
+            type="button"
+            onClick={() => playSoundCard(0)}
+            disabled={answered}
+            aria-label="播放第一声"
+            className={`rounded-xl border px-2.5 py-1.5 text-left transition sm:px-3 sm:py-2 ${
+              activeSoundIndex === 0
+                ? 'border-orange-300 bg-orange-100 shadow-sm'
+                : 'border-white/90 bg-white/70 hover:border-orange-200 hover:bg-orange-50'
+            } disabled:cursor-not-allowed disabled:opacity-60`}
           >
             <p className="text-[10px] font-black text-slate-400">① 第一声</p>
             <p className="mt-0.5 text-xs font-black text-slate-700">起始音</p>
-          </div>
-          <div
-            className={`rounded-xl border px-2.5 py-1.5 sm:px-3 sm:py-2 ${
-              isPlaying
-                ? 'border-sky-200 bg-sky-50'
-                : 'border-white/90 bg-white/70'
-            }`}
+          </button>
+          <button
+            type="button"
+            onClick={() => playSoundCard(1)}
+            disabled={answered}
+            aria-label="播放第二声"
+            className={`rounded-xl border px-2.5 py-1.5 text-left transition sm:px-3 sm:py-2 ${
+              activeSoundIndex === 1
+                ? 'border-orange-300 bg-orange-100 shadow-sm'
+                : 'border-white/90 bg-white/70 hover:border-orange-200 hover:bg-orange-50'
+            } disabled:cursor-not-allowed disabled:opacity-60`}
           >
             <p className="text-[10px] font-black text-slate-400">② 第二声</p>
             <p className="mt-0.5 text-xs font-black text-slate-700">目标音</p>
-          </div>
+          </button>
         </div>
 
         <div className="relative h-28 overflow-hidden rounded-2xl border border-white/90 bg-gradient-to-b from-sky-100 to-slate-100 sm:h-44">
