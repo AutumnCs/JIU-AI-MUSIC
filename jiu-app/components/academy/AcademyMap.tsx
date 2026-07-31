@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LEVELS } from '@/lib/constants';
 import { CountrysideBackground } from './CountrysideBackground';
@@ -57,49 +57,27 @@ export function AcademyMap({ progress }: AcademyMapProps) {
     ({ level }) => level.id === selectedLevelId,
   );
 
-  useEffect(() => {
-    let firstFrame = 0;
-    let secondFrame = 0;
-    const timer = window.setTimeout(() => {
-      firstFrame = requestAnimationFrame(() => {
-        secondFrame = requestAnimationFrame(() => {
-          const currentNode = currentNodeRef.current;
-          if (!currentNode) return;
+  useLayoutEffect(() => {
+    const currentNode = currentNodeRef.current;
+    if (!currentNode) return;
 
-          const header = document.querySelector<HTMLElement>(
-            `.${styles.header}`,
-          );
-          const headerHeight = header?.getBoundingClientRect().height ?? 0;
-          const bottomNavigationHeight = 72;
-          const visibleHeight = Math.max(
-            window.innerHeight - headerHeight - bottomNavigationHeight,
-            0,
-          );
-          const nodeRect = currentNode.getBoundingClientRect();
-          const targetTop = Math.max(
-            0,
-            window.scrollY +
-              nodeRect.top -
-              headerHeight -
-              (visibleHeight - nodeRect.height) / 2,
-          );
-          const prefersReducedMotion = window.matchMedia(
-            '(prefers-reduced-motion: reduce)',
-          ).matches;
+    const header = document.querySelector<HTMLElement>(`.${styles.header}`);
+    const headerHeight = header?.getBoundingClientRect().height ?? 0;
+    const bottomNavigationHeight = 72;
+    const visibleHeight = Math.max(
+      window.innerHeight - headerHeight - bottomNavigationHeight,
+      0,
+    );
+    const nodeRect = currentNode.getBoundingClientRect();
+    const targetTop = Math.max(
+      0,
+      window.scrollY +
+        nodeRect.top -
+        headerHeight -
+        (visibleHeight - nodeRect.height) / 2,
+    );
 
-          window.scrollTo({
-            top: targetTop,
-            behavior: prefersReducedMotion ? 'auto' : 'smooth',
-          });
-        });
-      });
-    }, 180);
-
-    return () => {
-      window.clearTimeout(timer);
-      cancelAnimationFrame(firstFrame);
-      cancelAnimationFrame(secondFrame);
-    };
+    window.scrollTo({ top: targetTop, behavior: 'auto' });
   }, [currentLevelId]);
 
   return (
