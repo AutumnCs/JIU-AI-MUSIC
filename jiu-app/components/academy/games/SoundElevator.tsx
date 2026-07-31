@@ -22,6 +22,7 @@ export function SoundElevator({
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<boolean | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [canAnswer, setCanAnswer] = useState(false);
   const playbackTimerRef = useRef<number | null>(null);
   const [questions] = useState(() =>
     Array.from({ length: 3 }, () => {
@@ -41,6 +42,7 @@ export function SoundElevator({
     if (playbackTimerRef.current) {
       window.clearTimeout(playbackTimerRef.current);
     }
+    setCanAnswer(false);
     const question = questions[round];
     setIsPlaying(true);
     playTone(question.first, 0.4);
@@ -48,15 +50,15 @@ export function SoundElevator({
       playTone(question.second, 0.4);
       playbackTimerRef.current = window.setTimeout(() => {
         setIsPlaying(false);
+        setCanAnswer(true);
         playbackTimerRef.current = null;
       }, 420);
     }, 620);
   }, [questions, round]);
 
   useEffect(() => {
-    const timeout = window.setTimeout(playQuestion, 450);
+    playQuestion();
     return () => {
-      window.clearTimeout(timeout);
       if (playbackTimerRef.current) {
         window.clearTimeout(playbackTimerRef.current);
       }
@@ -64,7 +66,7 @@ export function SoundElevator({
   }, [playQuestion]);
 
   const handleAnswer = (higher: boolean) => {
-    if (answered) return;
+    if (answered || !canAnswer) return;
     setAnswered(true);
     setSelectedAnswer(higher);
     const isCorrect = higher === questions[round].secondHigher;
@@ -80,6 +82,7 @@ export function SoundElevator({
       }
       setRound((value) => value + 1);
       setAnswered(false);
+      setCanAnswer(false);
       setFeedback(null);
       setSelectedAnswer(null);
     }, 900);
@@ -108,7 +111,7 @@ export function SoundElevator({
             }`}
             aria-live="polite"
           >
-            {isPlaying ? '正在播放' : '准备选择'}
+            {isPlaying ? '正在播放' : canAnswer ? '准备选择' : '正在准备'}
           </span>
         </div>
 
@@ -202,14 +205,16 @@ export function SoundElevator({
               : isSelected
                 ? 'border-red-300 bg-red-50 text-red-600'
                 : 'border-slate-200 bg-slate-50 text-slate-400'
-            : 'border-slate-200 bg-white text-slate-700 hover:border-orange-300';
+            : !canAnswer
+              ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400'
+              : 'border-slate-200 bg-white text-slate-700 hover:border-orange-300';
 
           return (
             <motion.button
               key={option.label}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleAnswer(option.value)}
-              disabled={answered}
+              disabled={answered || !canAnswer}
               className={`relative rounded-2xl border-2 px-3 py-2 text-sm font-black transition sm:py-4 sm:text-base ${stateClass}`}
             >
               {answered && isCorrectOption && (
