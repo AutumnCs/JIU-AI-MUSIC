@@ -46,6 +46,7 @@ interface GlobalState {
   setCurrentBird: (id: number) => void;
   addFragment: (type: '绒羽' | '怪羽' | '暗羽', count: number) => void;
   unlockBird: (id: number) => void;
+  exchangeBird: (id: number) => boolean;
   completeLevel: (
     levelId: number,
     score: number,
@@ -109,7 +110,6 @@ export const useGlobalStore = create<GlobalState>((set, get) => ({
           },
           userId: uid,
         });
-        checkBirdUnlocks(get(), set);
         persistState(get());
         return;
       } catch {}
@@ -127,7 +127,6 @@ export const useGlobalStore = create<GlobalState>((set, get) => ({
       const newFragments = { ...s.fragments, [type]: s.fragments[type] + count };
       return { fragments: newFragments };
     });
-    checkBirdUnlocks(get(), set);
     persistState(get());
   },
 
@@ -137,6 +136,25 @@ export const useGlobalStore = create<GlobalState>((set, get) => ({
       return { unlockedBirds: [...s.unlockedBirds, id] };
     });
     persistState(get());
+  },
+
+  exchangeBird: (id) => {
+    const bird = BIRDS.find((item) => item.id === id);
+    if (!bird || !bird.fragmentType || bird.fragmentNeeded <= 0) return false;
+    if (get().unlockedBirds.includes(id)) return true;
+
+    const fragmentType = bird.fragmentType;
+    if (get().fragments[fragmentType] < bird.fragmentNeeded) return false;
+
+    set((state) => ({
+      fragments: {
+        ...state.fragments,
+        [fragmentType]: state.fragments[fragmentType] - bird.fragmentNeeded,
+      },
+      unlockedBirds: [...state.unlockedBirds, id],
+    }));
+    persistState(get());
+    return true;
   },
 
   completeLevel: (levelId, score) => {
@@ -169,7 +187,6 @@ export const useGlobalStore = create<GlobalState>((set, get) => ({
         },
       };
     });
-    checkBirdUnlocks(get(), set);
     persistState(get());
 
     return {
@@ -249,20 +266,4 @@ function persistState(state: GlobalState) {
   void userId;
   void academySession;
   localStorage.setItem('jiu_state', JSON.stringify(toSave));
-}
-
-function checkBirdUnlocks(
-  state: GlobalState,
-  set: (fn: (s: GlobalState) => Partial<GlobalState>) => void
-) {
-  for (const bird of BIRDS) {
-    if (state.unlockedBirds.includes(bird.id)) continue;
-    if (!bird.fragmentType) continue;
-    const have = state.fragments[bird.fragmentType as keyof typeof state.fragments] || 0;
-    if (have >= bird.fragmentNeeded) {
-      set((s) => ({
-        unlockedBirds: [...s.unlockedBirds, bird.id],
-      }));
-    }
-  }
 }

@@ -19,16 +19,24 @@ const FRAGMENT_DESTINATIONS = {
 } as const;
 
 export function BirdDetail({ bird, onClose }: BirdDetailProps) {
-  const { unlockedBirds, fragments, currentBirdId, setCurrentBird } = useGlobalStore();
+  const {
+    unlockedBirds,
+    fragments,
+    currentBirdId,
+    setCurrentBird,
+    exchangeBird,
+  } = useGlobalStore();
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioError, setAudioError] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isUnlocked = unlockedBirds.includes(bird.id);
   const isCurrent = currentBirdId === bird.id;
   const fragmentCount = bird.fragmentType ? fragments[bird.fragmentType] : 0;
-  const progress = bird.fragmentNeeded > 0
-    ? Math.min(fragmentCount / bird.fragmentNeeded, 1)
-    : 1;
+  const canExchange = Boolean(
+    !isUnlocked &&
+    bird.fragmentType &&
+    fragmentCount >= bird.fragmentNeeded,
+  );
   const destination = bird.fragmentType
     ? FRAGMENT_DESTINATIONS[bird.fragmentType]
     : null;
@@ -112,7 +120,7 @@ export function BirdDetail({ bird, onClose }: BirdDetailProps) {
             <div className="absolute -right-6 bottom-0 h-28 w-28 rounded-full bg-[#77C69A]/15" />
             <BirdPortrait
               bird={bird}
-              reveal={isUnlocked ? 1 : Math.max(0.16, progress)}
+              reveal={isUnlocked ? 1 : 0}
               className="mx-auto aspect-square w-[74%] max-w-[280px]"
             />
           </div>
@@ -124,7 +132,7 @@ export function BirdDetail({ bird, onClose }: BirdDetailProps) {
                   ? 'bg-[#52A879]/12 text-[#3E8B62]'
                   : 'bg-[#FF9F43]/12 text-[#D87419]'
               }`}>
-                {isUnlocked ? '已经成为伙伴' : '正在收集碎片'}
+                {isUnlocked ? '已经成为伙伴' : '等待兑换'}
               </span>
               {isCurrent && (
                 <span className="rounded-full bg-[#2C3E50] px-2.5 py-1 text-[10px] font-bold text-white">
@@ -211,25 +219,40 @@ export function BirdDetail({ bird, onClose }: BirdDetailProps) {
           {!isUnlocked && bird.fragmentType && destination && (
             <div className="mt-6 rounded-[22px] border border-[#F0D9BF] bg-white p-4">
               <div className="flex items-center justify-between text-sm">
-                <span className="font-extrabold text-[#4D433B]">{bird.fragmentType}收集进度</span>
-                <span className="font-black text-[#D87419]">{fragmentCount}/{bird.fragmentNeeded}</span>
+                <span className="font-extrabold text-[#4D433B]">兑换这位音乐伙伴</span>
+                <span className="font-black text-[#D87419]">
+                  拥有 {fragmentCount} 枚
+                </span>
               </div>
-              <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[#EFE7DE]">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#FFB057] to-[#FF8C42]"
-                  style={{ width: `${progress * 100}%` }}
-                />
+              <div className="mt-3 flex items-center justify-between rounded-[16px] bg-[#FFF4E6] px-4 py-3">
+                <span className="text-xs font-bold text-[#6F5D4D]">兑换需要</span>
+                <strong className="text-base font-black text-[#D87419]">
+                  {bird.fragmentNeeded} 枚{bird.fragmentType}
+                </strong>
               </div>
-              <p className="mt-2 text-[11px] leading-5 text-[#84786D]">
-                再收集 {Math.max(bird.fragmentNeeded - fragmentCount, 0)} 枚，就能让它成为你的音乐伙伴。
-              </p>
-              <Link
-                href={destination.href}
-                onClick={onClose}
-                className="mt-3 flex min-h-12 items-center justify-center rounded-[16px] bg-[#FF9F43] px-4 text-sm font-extrabold text-white"
+              <button
+                type="button"
+                onClick={() => exchangeBird(bird.id)}
+                disabled={!canExchange}
+                className={`mt-3 min-h-12 w-full rounded-[16px] px-4 text-sm font-extrabold ${
+                  canExchange
+                    ? 'bg-[#FF9F43] text-white shadow-[0_8px_20px_rgba(255,159,67,0.25)]'
+                    : 'cursor-not-allowed bg-[#E8E3DC] text-[#8A8179]'
+                }`}
               >
-                {destination.label} →
-              </Link>
+                {canExchange
+                  ? `使用 ${bird.fragmentNeeded} 枚${bird.fragmentType}兑换`
+                  : `还差 ${Math.max(bird.fragmentNeeded - fragmentCount, 0)} 枚${bird.fragmentType}`}
+              </button>
+              {!canExchange && (
+                <Link
+                  href={destination.href}
+                  onClick={onClose}
+                  className="mt-2 flex min-h-11 items-center justify-center rounded-[16px] px-4 text-xs font-extrabold text-[#A05C28]"
+                >
+                  {destination.label} →
+                </Link>
+              )}
             </div>
           )}
 

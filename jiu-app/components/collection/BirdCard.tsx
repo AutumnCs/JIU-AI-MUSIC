@@ -21,17 +21,16 @@ export function BirdCard({ bird, onOpen }: BirdCardProps) {
   const isUnlocked = unlockedBirds.includes(bird.id);
   const isCurrent = currentBirdId === bird.id;
   const fragmentCount = bird.fragmentType ? fragments[bird.fragmentType] : 0;
-  const progress = bird.fragmentNeeded > 0
-    ? Math.min(fragmentCount / bird.fragmentNeeded, 1)
-    : 1;
-  const hasFragments = fragmentCount > 0;
-  const canOpen = isUnlocked || hasFragments;
-  const reveal = isUnlocked ? 1 : hasFragments ? Math.max(0.16, progress) : 0;
+  const canExchange = Boolean(
+    !isUnlocked &&
+    bird.fragmentType &&
+    fragmentCount >= bird.fragmentNeeded,
+  );
 
   return (
     <motion.article
-      whileHover={canOpen ? { y: -3 } : undefined}
-      whileTap={canOpen ? { scale: 0.98 } : undefined}
+      whileHover={{ y: -3 }}
+      whileTap={{ scale: 0.98 }}
       className={`relative w-[154px] shrink-0 overflow-hidden rounded-[22px] border bg-white/90 shadow-[0_12px_30px_rgba(73,56,38,0.09)] ${
         isCurrent
           ? 'border-[#FF9F43] ring-2 ring-[#FF9F43]/20'
@@ -44,69 +43,61 @@ export function BirdCard({ bird, onOpen }: BirdCardProps) {
         </div>
       )}
 
-      {!canOpen && (
+      {!isUnlocked && bird.fragmentType && (
+        <div className="absolute left-3 top-3 z-10 rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-bold text-[#765A43] shadow-sm">
+          {FRAGMENT_MARKS[bird.fragmentType]} {bird.fragmentNeeded} 枚
+        </div>
+      )}
+
+      {!isUnlocked && (
         <div className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/75 text-sm text-[#756B61] shadow-sm">
           <span aria-hidden="true">●</span>
-          <span className="sr-only">尚未发现</span>
+          <span className="sr-only">尚未兑换</span>
         </div>
       )}
 
       <button
         type="button"
-        onClick={canOpen ? onOpen : undefined}
-        disabled={!canOpen}
-        className="block w-full text-left disabled:cursor-default"
-        aria-label={canOpen ? `查看${bird.name}详情` : '尚未发现的鸟'}
+        onClick={onOpen}
+        className="block w-full text-left"
+        aria-label={isUnlocked ? `查看${bird.name}详情` : `查看${bird.name}兑换条件`}
       >
         <BirdPortrait
           bird={bird}
-          reveal={reveal}
+          reveal={isUnlocked ? 1 : 0}
           className={`aspect-[1/1.04] w-full ${
             isUnlocked
               ? 'bg-gradient-to-b from-[#FFF7DC] to-[#FFF0DE]'
-              : hasFragments
-                ? 'bg-gradient-to-b from-[#FFF8EA] to-[#F4ECE3]'
-                : 'bg-[#EEEAE4]'
+              : 'bg-[#EEEAE4]'
           }`}
         />
 
         <div className="min-h-[86px] px-3.5 pb-3.5 pt-2.5">
-          {!isUnlocked && hasFragments && (
-            <div className="mb-2 rounded-xl bg-[#FFF4E7] px-2.5 py-2">
-              <div className="flex items-center justify-between text-[9px] font-bold text-[#755C47]">
-                <span>{FRAGMENT_MARKS[bird.fragmentType || '绒羽']} {bird.fragmentType}</span>
-                <span>{fragmentCount}/{bird.fragmentNeeded}</span>
-              </div>
-              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#E9DDD0]">
-                <div
-                  className="h-full rounded-full bg-[#FF9F43] transition-[width] duration-700"
-                  style={{ width: `${progress * 100}%` }}
-                />
-              </div>
-            </div>
-          )}
-
           <h3 className={`truncate text-[15px] font-extrabold ${
-            canOpen ? 'text-[#2C3E50]' : 'text-[#8C857D]'
+            isUnlocked ? 'text-[#2C3E50]' : 'text-[#8C857D]'
           }`}>
-            {canOpen ? bird.name : '神秘鸟影'}
+            {isUnlocked ? bird.name : '神秘鸟影'}
           </h3>
           <p className="mt-0.5 truncate text-[10px] text-[#8E8175]">
             {isUnlocked
               ? bird.englishName
-              : hasFragments
-                ? `还差 ${Math.max(bird.fragmentNeeded - fragmentCount, 0)} 枚碎片`
-                : '获得第一枚碎片后揭晓'}
+              : `${bird.fragmentNeeded} 枚${bird.fragmentType}兑换`}
           </p>
 
           <div className={`mt-2.5 flex min-h-7 items-center justify-center rounded-full text-[11px] font-bold ${
             isCurrent
               ? 'bg-[#2C3E50]/7 text-[#2C3E50]'
-              : canOpen
+              : isUnlocked || canExchange
                 ? 'bg-[#FF9F43]/12 text-[#D87419]'
                 : 'bg-[#8B8177]/8 text-[#918980]'
           }`}>
-            {isCurrent ? '我的音乐伙伴' : canOpen ? '了解详情' : '等待发现'}
+            {isCurrent
+              ? '我的音乐伙伴'
+              : isUnlocked
+                ? '了解详情'
+                : canExchange
+                  ? '可以兑换'
+                  : '碎片不足'}
           </div>
         </div>
       </button>
