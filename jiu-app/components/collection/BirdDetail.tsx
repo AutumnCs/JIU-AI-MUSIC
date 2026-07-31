@@ -195,21 +195,26 @@ export function BirdDetail({ bird, onClose }: BirdDetailProps) {
 
           <div className="mt-6">
             <h3 className="text-base font-black text-[#2C3E50]">认识一下这位朋友</h3>
-            <div className="mt-3 grid gap-3">
+            <div className="mt-3 grid grid-cols-3 gap-2">
               {[
                 { mark: '01', title: '长什么样', text: bird.feature, color: 'bg-[#FFF0D6]' },
                 { mark: '02', title: '住在哪里', text: bird.habitat, color: 'bg-[#E8F5EC]' },
                 { mark: '03', title: '平时做什么', text: bird.habit, color: 'bg-[#EAEAFB]' },
               ].map((item) => (
-                <div key={item.title} className={`${item.color} rounded-[18px] p-4`}>
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 text-[10px] font-black tracking-wider text-[#7A6C60]">
+                <div
+                  key={item.title}
+                  className={`${item.color} min-h-[156px] rounded-[18px] px-2.5 py-3`}
+                >
+                  <div className="flex h-full flex-col items-center text-center">
+                    <span className="rounded-full bg-white/55 px-2 py-1 text-[9px] font-black tracking-wider text-[#7A6C60]">
                       {item.mark}
                     </span>
-                    <div>
-                      <h4 className="text-sm font-extrabold text-[#3C4B55]">{item.title}</h4>
-                      <p className="mt-1 text-xs leading-5 text-[#6F655D]">{item.text}</p>
-                    </div>
+                    <h4 className="mt-2 text-[13px] font-extrabold leading-5 text-[#3C4B55]">
+                      {item.title}
+                    </h4>
+                    <p className="mt-2 text-[11px] leading-[1.55] text-[#6F655D]">
+                      {item.text}
+                    </p>
                   </div>
                 </div>
               ))}
