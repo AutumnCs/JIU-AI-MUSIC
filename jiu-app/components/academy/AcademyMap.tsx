@@ -1,6 +1,13 @@
 'use client';
 
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LEVELS } from '@/lib/constants';
 import { CountrysideBackground } from './CountrysideBackground';
@@ -57,7 +64,7 @@ export function AcademyMap({ progress }: AcademyMapProps) {
     ({ level }) => level.id === selectedLevelId,
   );
 
-  useLayoutEffect(() => {
+  const scrollToCurrentLevel = useCallback(() => {
     const currentNode = currentNodeRef.current;
     if (!currentNode) return;
 
@@ -78,7 +85,16 @@ export function AcademyMap({ progress }: AcademyMapProps) {
     );
 
     window.scrollTo({ top: targetTop, behavior: 'auto' });
-  }, [currentLevelId]);
+  }, []);
+
+  useLayoutEffect(() => {
+    scrollToCurrentLevel();
+  }, [currentLevelId, scrollToCurrentLevel]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(scrollToCurrentLevel, 0);
+    return () => window.clearTimeout(timer);
+  }, [currentLevelId, scrollToCurrentLevel]);
 
   return (
     <div
