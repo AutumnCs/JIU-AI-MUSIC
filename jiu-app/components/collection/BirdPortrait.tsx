@@ -29,7 +29,10 @@ export function BirdPortrait({
     >
       <div
         className="absolute inset-0 opacity-55 grayscale"
-        style={portraitStyle}
+        style={{
+          ...portraitStyle,
+          filter: 'grayscale(1) contrast(0)',
+        }}
         aria-hidden="true"
       />
       {safeReveal > 0 && (
