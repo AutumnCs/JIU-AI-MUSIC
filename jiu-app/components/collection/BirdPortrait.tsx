@@ -12,11 +12,11 @@ export function BirdPortrait({
   reveal = 1,
   className = '',
 }: BirdPortraitProps) {
-  const backgroundPosition = `${bird.atlasPosition.column * 50}% ${bird.atlasPosition.row * 50}%`;
   const portraitStyle: CSSProperties = {
-    backgroundImage: "url('/images/bird-atlas.png')",
-    backgroundPosition,
-    backgroundSize: '300% 300%',
+    backgroundImage: `url('/images/birds/${bird.id}.png')`,
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    backgroundSize: 'contain',
   };
   const safeReveal = Math.max(0, Math.min(reveal, 1));
 
