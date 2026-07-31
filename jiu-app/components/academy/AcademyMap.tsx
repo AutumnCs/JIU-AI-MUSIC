@@ -58,14 +58,48 @@ export function AcademyMap({ progress }: AcademyMapProps) {
   );
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      currentNodeRef.current?.scrollIntoView({
-        block: 'center',
-        behavior: 'smooth',
-      });
-    });
+    let firstFrame = 0;
+    let secondFrame = 0;
+    const timer = window.setTimeout(() => {
+      firstFrame = requestAnimationFrame(() => {
+        secondFrame = requestAnimationFrame(() => {
+          const currentNode = currentNodeRef.current;
+          if (!currentNode) return;
 
-    return () => cancelAnimationFrame(frame);
+          const header = document.querySelector<HTMLElement>(
+            `.${styles.header}`,
+          );
+          const headerHeight = header?.getBoundingClientRect().height ?? 0;
+          const bottomNavigationHeight = 72;
+          const visibleHeight = Math.max(
+            window.innerHeight - headerHeight - bottomNavigationHeight,
+            0,
+          );
+          const nodeRect = currentNode.getBoundingClientRect();
+          const targetTop = Math.max(
+            0,
+            window.scrollY +
+              nodeRect.top -
+              headerHeight -
+              (visibleHeight - nodeRect.height) / 2,
+          );
+          const prefersReducedMotion = window.matchMedia(
+            '(prefers-reduced-motion: reduce)',
+          ).matches;
+
+          window.scrollTo({
+            top: targetTop,
+            behavior: prefersReducedMotion ? 'auto' : 'smooth',
+          });
+        });
+      });
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timer);
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
   }, [currentLevelId]);
 
   return (
