@@ -17,7 +17,7 @@ const FRAGMENT_MARKS = {
 } as const;
 
 export function BirdCard({ bird, onOpen }: BirdCardProps) {
-  const { unlockedBirds, fragments, currentBirdId } = useGlobalStore();
+  const { unlockedBirds, fragments, currentBirdId, exchangeBird } = useGlobalStore();
   const isUnlocked = unlockedBirds.includes(bird.id);
   const isCurrent = currentBirdId === bird.id;
   const fragmentCount = bird.fragmentType ? fragments[bird.fragmentType] : 0;
@@ -26,11 +26,12 @@ export function BirdCard({ bird, onOpen }: BirdCardProps) {
     bird.fragmentType &&
     fragmentCount >= bird.fragmentNeeded,
   );
+  const canInteract = isUnlocked || canExchange;
 
   return (
     <motion.article
-      whileHover={{ y: -3 }}
-      whileTap={{ scale: 0.98 }}
+      whileHover={canInteract ? { y: -3 } : undefined}
+      whileTap={canInteract ? { scale: 0.98 } : undefined}
       className={`relative w-[154px] shrink-0 overflow-hidden rounded-[22px] border bg-white/90 shadow-[0_12px_30px_rgba(73,56,38,0.09)] ${
         isCurrent
           ? 'border-[#FF9F43] ring-2 ring-[#FF9F43]/20'
@@ -56,12 +57,7 @@ export function BirdCard({ bird, onOpen }: BirdCardProps) {
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={onOpen}
-        className="block w-full text-left"
-        aria-label={isUnlocked ? `查看${bird.name}详情` : `查看${bird.name}兑换条件`}
-      >
+      <div className="block w-full text-left">
         <BirdPortrait
           bird={bird}
           reveal={isUnlocked ? 1 : 0}
@@ -100,7 +96,29 @@ export function BirdCard({ bird, onOpen }: BirdCardProps) {
                   : '碎片不足'}
           </div>
         </div>
-      </button>
+      </div>
+
+      {isUnlocked && (
+        <button
+          type="button"
+          onClick={onOpen}
+          className="absolute inset-0 z-20 rounded-[22px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF9F43]"
+          aria-label={`查看${bird.name}详情`}
+        >
+          <span className="sr-only">查看{bird.name}详情</span>
+        </button>
+      )}
+
+      {!isUnlocked && canExchange && (
+        <button
+          type="button"
+          onClick={() => exchangeBird(bird.id)}
+          className="absolute bottom-3.5 left-3.5 right-3.5 z-20 min-h-7 rounded-full bg-[#FFF0DF] text-[11px] font-bold text-[#D87419] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9F43]"
+          aria-label={`使用${bird.fragmentNeeded}枚${bird.fragmentType}兑换${bird.name}`}
+        >
+          立即兑换
+        </button>
+      )}
     </motion.article>
   );
 }
