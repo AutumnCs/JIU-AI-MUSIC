@@ -44,20 +44,15 @@ export function BirdCard({ bird, onOpen }: BirdCardProps) {
         </div>
       )}
 
-      {!isUnlocked && bird.fragmentType && (
-        <div className="absolute left-3 top-3 z-10 rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-bold text-[#765A43] shadow-sm">
-          {FRAGMENT_MARKS[bird.fragmentType]} {bird.fragmentNeeded} 枚
-        </div>
-      )}
-
-      {!isUnlocked && (
-        <div className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/75 text-sm text-[#756B61] shadow-sm">
-          <span aria-hidden="true">●</span>
-          <span className="sr-only">尚未兑换</span>
-        </div>
-      )}
-
       <div className="block w-full text-left">
+        {!isUnlocked && bird.fragmentType && (
+          <div className="flex h-9 items-center justify-end px-3">
+            <span className="rounded-full bg-[#FFF4E6] px-2.5 py-1 text-[10px] font-bold text-[#765A43]">
+              {FRAGMENT_MARKS[bird.fragmentType]} {bird.fragmentNeeded} 枚
+            </span>
+          </div>
+        )}
+
         <BirdPortrait
           bird={bird}
           reveal={isUnlocked ? 1 : 0}
