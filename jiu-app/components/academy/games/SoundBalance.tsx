@@ -195,25 +195,37 @@ export function SoundBalance({ onComplete, onMistake, simpleMode }: AcademyGameP
 
           <motion.div
             key={`left-sound-${answered ? questions[round].louder : 'hidden'}`}
-            className={`absolute bottom-2 left-[13%] grid h-11 w-16 place-items-center rounded-full border-2 border-white bg-white/90 text-sm font-black text-orange-500 shadow-sm sm:bottom-3 sm:h-14 sm:w-20 sm:text-base ${
+            className={`absolute bottom-2 left-[13%] grid h-11 w-16 place-items-center overflow-hidden rounded-full border-2 border-white bg-white/90 text-sm font-black text-orange-500 shadow-sm sm:bottom-3 sm:h-14 sm:w-20 sm:text-base ${
               activeSoundIndex === 0 ? 'ring-4 ring-orange-200/80' : ''
             }`}
             animate={activeSoundIndex === 0 ? { scale: [1, 1.06, 1] } : { scale: 1 }}
             transition={{ repeat: activeSoundIndex === 0 ? Infinity : 0, duration: 0.75 }}
             aria-label={answered ? (questions[round].louder === 0 ? '起始音更强' : '起始音更弱') : '起始音播放中'}
           >
-            {answered ? (questions[round].louder === 0 ? '🐘' : '🐱') : '♪'}
+            <span
+              className={`grid h-9 w-9 place-items-center overflow-hidden leading-none sm:h-10 sm:w-10 ${
+                answered ? 'text-[1.9rem] sm:text-[2.25rem]' : 'text-2xl sm:text-[1.75rem]'
+              }`}
+            >
+              {answered ? (questions[round].louder === 0 ? '🐘' : '🐱') : '♪'}
+            </span>
           </motion.div>
           <motion.div
             key={`right-sound-${answered ? questions[round].louder : 'hidden'}`}
-            className={`absolute bottom-2 right-[13%] grid h-11 w-16 place-items-center rounded-full border-2 border-white bg-white/90 text-sm font-black text-orange-500 shadow-sm sm:bottom-3 sm:h-14 sm:w-20 sm:text-base ${
+            className={`absolute bottom-2 right-[13%] grid h-11 w-16 place-items-center overflow-hidden rounded-full border-2 border-white bg-white/90 text-sm font-black text-orange-500 shadow-sm sm:bottom-3 sm:h-14 sm:w-20 sm:text-base ${
               activeSoundIndex === 1 ? 'ring-4 ring-orange-200/80' : ''
             }`}
             animate={activeSoundIndex === 1 ? { scale: [1, 1.06, 1] } : { scale: 1 }}
             transition={{ repeat: activeSoundIndex === 1 ? Infinity : 0, duration: 0.75 }}
             aria-label={answered ? (questions[round].louder === 1 ? '目标音更强' : '目标音更弱') : '目标音播放中'}
           >
-            {answered ? (questions[round].louder === 1 ? '🐘' : '🐱') : '♪'}
+            <span
+              className={`grid h-9 w-9 place-items-center overflow-hidden leading-none sm:h-10 sm:w-10 ${
+                answered ? 'text-[1.9rem] sm:text-[2.25rem]' : 'text-2xl sm:text-[1.75rem]'
+              }`}
+            >
+              {answered ? (questions[round].louder === 1 ? '🐘' : '🐱') : '♪'}
+            </span>
           </motion.div>
           <div className="absolute bottom-0 left-1/2 h-[70%] w-1 -translate-x-1/2 rounded-full bg-orange-300 sm:h-[68%]" />
         </div>
