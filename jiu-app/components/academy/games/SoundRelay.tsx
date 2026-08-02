@@ -19,6 +19,7 @@ export function SoundRelay({ onComplete, onMistake, simpleMode }: AcademyGamePro
   const target = TARGETS[round];
   const targetSeconds = (target / 1000).toFixed(1);
   const progress = Math.min((elapsed / target) * 100, 100);
+  const visualProgress = Math.max(progress, 5);
 
   useEffect(() => {
     return () => {
@@ -131,14 +132,13 @@ export function SoundRelay({ onComplete, onMistake, simpleMode }: AcademyGamePro
             aria-label={`声音接力进度 ${Math.round(progress)}%`}
           >
             <div
-              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-blue-300 to-cyan-400 transition-[width]"
-              style={{ width: `${progress}%` }}
+              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-blue-300 to-cyan-400"
+              style={{ width: `${visualProgress}%` }}
             />
             <div className="absolute inset-y-0 right-[1px] border-r-2 border-dashed border-orange-400" />
             <motion.div
-              className="absolute top-1/2 z-10 grid h-10 w-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-2xl border-4 border-white bg-blue-500 text-xl shadow-lg"
-              animate={{ left: `${Math.max(progress, 5)}%` }}
-              transition={{ duration: holding ? 0.08 : 0.2, ease: 'linear' }}
+              className="absolute top-1/2 z-10 grid h-10 w-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-2xl border-4 border-white bg-sky-100 text-xl shadow-lg shadow-sky-200"
+              style={{ left: `${visualProgress}%` }}
             >
               💧
             </motion.div>
@@ -158,8 +158,8 @@ export function SoundRelay({ onComplete, onMistake, simpleMode }: AcademyGamePro
           style={{ touchAction: 'none' }}
           className={`mt-3 grid h-28 w-full place-items-center rounded-2xl border-4 text-3xl shadow-lg transition sm:h-36 ${
             holding
-              ? 'border-blue-300 bg-blue-500 text-white shadow-blue-200'
-              : 'border-blue-100 bg-blue-50 text-blue-500 hover:border-blue-200'
+              ? 'border-sky-300 bg-sky-200 text-blue-700 shadow-blue-100'
+              : 'border-sky-200 bg-sky-100 text-blue-600 hover:border-sky-300 hover:bg-sky-200'
           }`}
         >
           <span>
