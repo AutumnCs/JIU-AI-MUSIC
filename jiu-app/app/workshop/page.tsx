@@ -93,6 +93,8 @@ function labelFor<T extends readonly { id: string; label: string }[]>(items: T, 
 export default function WorkshopPage() {
   const { addFragment, currentBirdId } = useGlobalStore();
   const bird = BIRDS.find((item) => item.id === currentBirdId) ?? BIRDS[0];
+  const birdPortraitIndex = bird.atlasPosition.row * 3 + bird.atlasPosition.column + 1;
+  const selectedBirdPortrait = `/images/birds/${birdPortraitIndex}.png`;
   const [draft, setDraft] = useState<Draft>(DEFAULT_DRAFT);
   const [view, setView] = useState<WorkshopView>('create');
   const [draftReady, setDraftReady] = useState(false);
@@ -720,7 +722,7 @@ export default function WorkshopPage() {
                 className="absolute inset-7 flex items-center justify-center"
               >
                 <Image
-                  src={bird.avatar}
+                  src={selectedBirdPortrait}
                   alt={bird.name}
                   fill
                   sizes="176px"
