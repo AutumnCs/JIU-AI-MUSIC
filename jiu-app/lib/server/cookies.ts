@@ -9,6 +9,10 @@ export function getSessionExpiry(): string {
   return new Date(Date.now() + SESSION_COOKIE_MAX_AGE_SECONDS * 1000).toISOString();
 }
 
+export function validateCookieSecret(): void {
+  getCookieSecret();
+}
+
 export function readSessionId(request: Request): string | null {
   const value = getCookieValue(request.headers.get('cookie'), SESSION_COOKIE_NAME);
   if (!value) return null;
@@ -54,7 +58,14 @@ function signSessionId(sessionId: string): string {
 }
 
 function getCookieSecret(): string {
-  return process.env.AUTH_COOKIE_SECRET || 'jiu-local-development-cookie-secret';
+  const secret = process.env.AUTH_COOKIE_SECRET;
+  if (secret) return secret;
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('AUTH_COOKIE_SECRET must be set in production.');
+  }
+
+  return 'jiu-local-development-cookie-secret';
 }
 
 function getCookieValue(cookieHeader: string | null, name: string): string | null {

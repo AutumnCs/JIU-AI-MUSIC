@@ -7,12 +7,13 @@ import {
   findUserRecord,
   revokeSessionRecord,
 } from './db';
-import { getSessionExpiry, readSessionId } from './cookies';
+import { getSessionExpiry, readSessionId, validateCookieSecret } from './cookies';
 
 export async function createGuestUser(): Promise<{
   user: AuthUser;
   session: AuthSession;
 }> {
+  validateCookieSecret();
   const user = await createGuestUserRecord();
   const session = await createSessionRecord(user.id, getSessionExpiry());
   return { user, session };
