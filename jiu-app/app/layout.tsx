@@ -1,6 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useGlobalStore } from '@/stores/globalStore';
+import {
+  getLocalGuestId,
+  readLocalAuthState,
+  saveLocalAuthState,
+} from '@/lib/auth/session';
+import type { AuthState } from '@/lib/auth/types';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { BirdCompanion } from '@/components/layout/BirdCompanion';
 import { Onboarding } from '@/components/shared/Onboarding';
@@ -12,7 +18,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
-    init();
+    let authState = readLocalAuthState();
+    if (!authState.user) {
+      authState = {
+        user: { id: getLocalGuestId(), type: 'guest' },
+        session: null,
+        source: 'local',
+      } satisfies AuthState;
+      saveLocalAuthState(authState);
+    }
+
+    init(authState);
     setMounted(true);
     const onboarded = localStorage.getItem('jiu_onboarded');
     if (!onboarded) setShowOnboarding(true);

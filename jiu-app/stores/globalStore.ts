@@ -1,15 +1,6 @@
 import { create } from 'zustand';
 import { BIRDS } from '@/lib/constants';
-
-function getUserId(): string {
-  if (typeof window === 'undefined') return 'server';
-  let uid = localStorage.getItem('jiu_user_id');
-  if (!uid) {
-    uid = crypto.randomUUID();
-    localStorage.setItem('jiu_user_id', uid);
-  }
-  return uid;
-}
+import type { AuthState } from '@/lib/auth/types';
 
 export interface AcademyProgress {
   completed: boolean;
@@ -34,7 +25,7 @@ export interface LevelRewardResult {
 }
 
 interface GlobalState {
-  userId: string;
+  authState: AuthState;
   currentBirdId: number;
   fragments: { 绒羽: number; 怪羽: number; 暗羽: number };
   unlockedBirds: number[];
@@ -42,7 +33,7 @@ interface GlobalState {
   academySession: AcademySession;
   hasSeenOnboarding: boolean;
 
-  init: () => void;
+  init: (authState: AuthState) => void;
   setCurrentBird: (id: number) => void;
   addFragment: (type: '绒羽' | '怪羽' | '暗羽', count: number) => void;
   unlockBird: (id: number) => void;
@@ -61,7 +52,7 @@ interface GlobalState {
 }
 
 export const useGlobalStore = create<GlobalState>((set, get) => ({
-  userId: '',
+  authState: { user: null, session: null, source: 'local' },
   currentBirdId: 1,
   fragments: { 绒羽: 0, 怪羽: 0, 暗羽: 0 },
   unlockedBirds: [1],
@@ -74,8 +65,7 @@ export const useGlobalStore = create<GlobalState>((set, get) => ({
   },
   hasSeenOnboarding: false,
 
-  init: () => {
-    const uid = getUserId();
+  init: (authState) => {
     const saved = localStorage.getItem('jiu_state');
     if (saved) {
       try {
@@ -108,13 +98,13 @@ export const useGlobalStore = create<GlobalState>((set, get) => ({
             assistanceVisible: false,
             simpleMode: false,
           },
-          userId: uid,
+          authState,
         });
         persistState(get());
         return;
       } catch {}
     }
-    set({ userId: uid, unlockedBirds: [1], currentBirdId: 1 });
+    set({ authState, unlockedBirds: [1], currentBirdId: 1 });
   },
 
   setCurrentBird: (id) => {
@@ -262,8 +252,8 @@ export const useGlobalStore = create<GlobalState>((set, get) => ({
 }));
 
 function persistState(state: GlobalState) {
-  const { userId, academySession, ...toSave } = state;
-  void userId;
+  const { authState, academySession, ...toSave } = state;
+  void authState;
   void academySession;
   localStorage.setItem('jiu_state', JSON.stringify(toSave));
 }
