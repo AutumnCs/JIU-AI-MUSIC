@@ -283,15 +283,16 @@ export default function WorkshopPage() {
     .join('、');
 
   return (
-    <main className="min-h-screen bg-[#FFF8F0] text-[#2C3E50]">
+    <main className="jiu-page text-[#263746]">
       {view !== 'generating' && (
-        <header className="sticky top-0 z-30 border-b border-orange-100/80 bg-[#FFF8F0]/95 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] backdrop-blur-md">
+        <header className="jiu-header">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-extrabold tracking-tight">音乐工坊</h1>
-              <p className="mt-0.5 text-xs text-[#7F8C8D]">把你的故事变成一首歌</p>
+              <p className="text-[10px] font-bold tracking-[0.18em] text-[#A77950]">JIU MUSIC WORKSHOP</p>
+              <h1 className="mt-0.5 text-[22px] font-black tracking-tight text-[#263746]">音乐工坊</h1>
+              <p className="mt-0.5 text-xs text-[#67594E]">把你的故事变成一首歌</p>
             </div>
-            <div className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#6B7280] shadow-sm ring-1 ring-orange-100">
+            <div className="jiu-status-badge flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold">
               <span className={`h-2 w-2 rounded-full ${saved ? 'bg-[#2ED573]' : 'animate-pulse bg-[#FF9F43]'}`} />
               {saved ? '已保存' : '保存中'}
             </div>
@@ -322,6 +323,34 @@ export default function WorkshopPage() {
         </header>
       )}
 
+      {view === 'create' && (
+        <section className="jiu-partner-card" aria-label="当前音乐伙伴">
+          <div className="relative z-10 flex min-w-0 flex-1 flex-col items-start justify-center py-4 pl-5">
+            <span className="rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-black text-[#52715E]">
+              CURRENT PARTNER · 当前伙伴
+            </span>
+            <h2 className="mt-2 text-lg font-black tracking-tight text-[#263746]">
+              和{bird.name}一起创作
+            </h2>
+            <p className="mt-1 max-w-[205px] text-xs leading-5 text-[#67594E]">
+              它会陪你读歌词、挑乐器，把灵感变成音乐。
+            </p>
+          </div>
+          <div className="relative z-10 -mr-2 flex w-[34%] shrink-0 items-end justify-center self-stretch">
+            <Image
+              src={selectedBirdPortrait}
+              alt={bird.name}
+              width={160}
+              height={160}
+              unoptimized
+              className="h-full w-full object-contain object-bottom"
+            />
+          </div>
+          <div className="absolute -right-5 -top-8 h-28 w-28 rounded-full bg-white/35" aria-hidden="true" />
+          <div className="absolute -bottom-10 left-1/3 h-24 w-24 rounded-full bg-[#61AC7F]/10" aria-hidden="true" />
+        </section>
+      )}
+
       <AnimatePresence mode="wait">
         {view === 'create' && (
           <motion.div
@@ -331,7 +360,7 @@ export default function WorkshopPage() {
             exit={{ opacity: 0, y: -8 }}
             className="space-y-4 px-4 pb-40 pt-4"
           >
-            <section className="overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-[#F2E5D9]">
+            <section className="jiu-card overflow-hidden">
               <div className="flex items-start justify-between gap-4 border-b border-[#F5ECE4] bg-gradient-to-r from-[#FFF5E9] to-white p-4">
                 <div className="flex gap-3">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FF9F43] text-sm font-black text-white">1</span>
@@ -471,7 +500,7 @@ export default function WorkshopPage() {
               </div>
             </section>
 
-            <section className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#F2E5D9]">
+            <section className="jiu-card p-4">
               <div className="mb-4 flex gap-3">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#54A0FF] text-sm font-black text-white">2</span>
                 <div>
@@ -523,7 +552,7 @@ export default function WorkshopPage() {
               </fieldset>
             </section>
 
-            <section className="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-[#F2E5D9]">
+            <section className="jiu-card p-4">
               <div className="mb-4 flex gap-3">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#A785E5] text-sm font-black text-white">3</span>
                 <div>
@@ -646,7 +675,7 @@ export default function WorkshopPage() {
             </section>
 
             {!draft.instrumental && (
-              <section className="mt-4 rounded-[22px] bg-white p-5 shadow-sm ring-1 ring-[#F2E5D9]">
+              <section className="jiu-card mt-4 p-5">
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="font-extrabold">同步歌词</h3>
                   <span className="rounded-full bg-[#FFF1DE] px-2.5 py-1 text-xs font-bold text-[#C7631A]">正在演唱</span>
@@ -673,7 +702,7 @@ export default function WorkshopPage() {
       </AnimatePresence>
 
       {view === 'create' && (
-        <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-1/2 z-30 w-full max-w-lg -translate-x-1/2 border-t border-orange-100/80 bg-[#FFF8F0]/95 p-3 backdrop-blur-md">
+        <div className="jiu-action-bar fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-1/2 z-30 w-full max-w-lg -translate-x-1/2 p-3">
           <button
             type="button"
             onClick={handleGenerate}
@@ -686,7 +715,7 @@ export default function WorkshopPage() {
       )}
 
       {view === 'result' && (
-        <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-1/2 z-30 grid w-full max-w-lg -translate-x-1/2 grid-cols-[0.9fr_1.4fr] gap-2 border-t border-orange-100/80 bg-[#FFF8F0]/95 p-3 backdrop-blur-md">
+        <div className="jiu-action-bar fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-1/2 z-30 grid w-full max-w-lg -translate-x-1/2 grid-cols-[0.9fr_1.4fr] gap-2 p-3">
           <button type="button" onClick={saveWork} className="min-h-14 rounded-2xl border-2 border-[#FFC98F] bg-white text-sm font-black text-[#B96221] active:scale-[0.98]">
             保存作品
           </button>
@@ -777,7 +806,7 @@ export default function WorkshopPage() {
               aria-modal="true"
               aria-labelledby="publish-title"
               onClick={(event) => event.stopPropagation()}
-              className="w-full max-w-lg rounded-t-[28px] bg-[#FFF8F0] px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-3 shadow-2xl"
+              className="w-full max-w-lg rounded-t-[28px] bg-[#FFF9F2] px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-3 shadow-2xl"
             >
               <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-[#D8CCC2]" />
               <h2 id="publish-title" className="text-xl font-black">把作品分享给大家</h2>
