@@ -2,13 +2,20 @@
 
 Jiu 是一个面向儿童音乐启蒙与 AI 创作的 Next.js 应用。当前主线已经切到 **Cloudflare Workers + Hyperdrive + Neon Free Postgres**。
 
-## 现在这套后端做什么
+## 下一里程碑：游客优先的后端身份
 
-- `POST /api/auth/guest` 创建或恢复游客身份
+- `POST /api/auth/guest` 在没有有效会话时创建游客身份；已有有效会话时直接返回该身份
 - `GET /api/me` 读取当前用户
 - `POST /api/auth/logout` 退出当前会话
 
-身份和会话数据由 PostgreSQL 负责，前端草稿和临时状态仍然保留在 `localStorage` 里。
+应用启动时先从本地读取游客占位身份，保证界面可以立即渲染；接入后端引导时，先请求 `GET /api/me`，没有有效会话再请求 `POST /api/auth/guest`。服务端将会话写入签名的 HTTP-only cookie，浏览器端不能直接读取该 cookie。
+
+当前的存储边界如下：
+
+- PostgreSQL：游客/未来邮箱用户身份，以及会话的创建、校验和撤销。
+- `localStorage`：工坊草稿、作品缓存、学院进度和其他临时 UI 状态；这些内容已按当前用户 ID 隔离，但还不是云端同步。
+
+邮箱登录不在这个里程碑内，后续只会把同一用户体系从 `guest` 升级为 `email`，不应丢失已有归属数据。
 
 ## 本地开发
 
@@ -17,7 +24,7 @@ npm install
 npm run dev
 ```
 
-本地跑开发模式时，推荐把 `DATABASE_URL` 指向 Neon 的开发数据库，便于直接测试数据库链路。
+从 `.env.example` 创建本地环境文件后，将 `DATABASE_URL` 指向 Neon 的开发数据库，便于直接测试数据库链路。
 
 需要的环境变量：
 
@@ -26,8 +33,8 @@ DATABASE_URL=
 AUTH_COOKIE_SECRET=
 ```
 
-- `DATABASE_URL`：本地开发可直接指向 Neon 的 PostgreSQL 连接串
-- `AUTH_COOKIE_SECRET`：用于签名 HTTP-only session cookie 的长随机字符串
+- `DATABASE_URL`：本地开发使用的 PostgreSQL 连接串，通常指向 Neon 开发数据库
+- `AUTH_COOKIE_SECRET`：用于签名 HTTP-only session cookie 的长随机字符串；生产环境必须设置
 
 ## Cloudflare Workers 部署
 
@@ -44,7 +51,7 @@ AUTH_COOKIE_SECRET=
 3. 在 Cloudflare 创建 Hyperdrive，并绑定到 Neon
 4. 在 `wrangler.jsonc` 里配置 `HYPERDRIVE`
 5. 配置 `AUTH_COOKIE_SECRET`
-6. 不要再依赖阿里云那套部署方式作为主线
+6. 阿里云部署说明仅保留为归档参考，不作为主线路径
 
 ## 数据库表
 
