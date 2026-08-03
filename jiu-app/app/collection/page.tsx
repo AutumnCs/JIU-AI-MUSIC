@@ -89,6 +89,9 @@ export default function CollectionPage() {
             JIU BIRD COLLECTION
           </p>
           <h1 className="text-[22px] font-black tracking-tight text-[#263746]">我的鸟库</h1>
+          <p className="mt-0.5 text-xs text-[#67594E]">
+            发现鸟儿，找到你的音乐伙伴
+          </p>
         </div>
         <div className="rounded-full border border-[#E8D5C2] bg-white/75 px-3 py-1.5 text-xs font-extrabold text-[#795C44]">
           已发现 <span className="text-[#E47A24]">{discoveredCount}</span> / {BIRDS.length}
