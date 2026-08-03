@@ -722,10 +722,13 @@ export default function WorkshopPage() {
                 className="absolute inset-7 flex items-center justify-center"
               >
                 <Image
+                  key={currentBirdId}
                   src={selectedBirdPortrait}
                   alt={bird.name}
                   fill
                   sizes="176px"
+                  priority
+                  unoptimized
                   className="h-full w-full object-contain drop-shadow-[0_12px_12px_rgba(103,78,58,0.22)]"
                 />
               </motion.div>
