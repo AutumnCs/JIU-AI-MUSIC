@@ -6,6 +6,7 @@ import {
   findSessionRecord,
   findUserRecord,
   revokeSessionRecord,
+  validateDatabaseConfig,
 } from './db';
 import { getSessionExpiry, readSessionId, validateCookieSecret } from './cookies';
 
@@ -13,6 +14,7 @@ export async function createGuestUser(): Promise<{
   user: AuthUser;
   session: AuthSession;
 }> {
+  validateDatabaseConfig();
   validateCookieSecret();
   const user = await createGuestUserRecord();
   const session = await createSessionRecord(user.id, getSessionExpiry());
@@ -20,6 +22,7 @@ export async function createGuestUser(): Promise<{
 }
 
 export async function getCurrentUserFromRequest(request: Request): Promise<AuthState> {
+  validateDatabaseConfig();
   const sessionId = readSessionId(request);
   if (!sessionId) return emptyAuthState();
 
@@ -43,6 +46,7 @@ export async function getCurrentUserFromRequest(request: Request): Promise<AuthS
 }
 
 export async function revokeCurrentSession(request: Request): Promise<void> {
+  validateDatabaseConfig();
   const sessionId = readSessionId(request);
   if (sessionId) await revokeSessionRecord(sessionId);
 }
