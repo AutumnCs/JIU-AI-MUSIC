@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import { getActiveUserId } from '@/lib/auth/active-user';
+import { useGlobalStore } from '@/stores/globalStore';
 
 interface Work {
   id: number;
@@ -43,14 +45,18 @@ const DEMO_WORKS: Work[] = [
   { id: 4, title: '溪水叮咚', author: '小美', time: '5 小时前', style: '🌙 安静', stars: 3, starred: false },
 ];
 
+const LEGACY_WORKS_KEY = 'jiu_workshop_works';
+
 export default function CommunityPage() {
+  const { authState } = useGlobalStore();
+  const activeUserId = getActiveUserId(authState);
   const [works, setWorks] = useState(DEMO_WORKS);
   const [playingId, setPlayingId] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     try {
-      const stored = JSON.parse(localStorage.getItem('jiu_workshop_works') || '[]') as StoredWork[];
+      const stored = readStoredWorks(activeUserId, authState.source);
       const publishedWorks: Work[] = stored
         .filter((work) => work.status === 'published')
         .map((work) => ({
@@ -71,7 +77,7 @@ export default function CommunityPage() {
     }
 
     return () => audioRef.current?.pause();
-  }, []);
+  }, [activeUserId, authState.source]);
 
   const handleStar = (id: number) => {
     setWorks((prev) =>
@@ -154,5 +160,45 @@ export default function CommunityPage() {
         ))}
       </div>
     </div>
+  );
+}
+
+function readStoredWorks(activeUserId: string | null, source: 'local' | 'server'): StoredWork[] {
+  const scopedWorks = readStoredWorkList(localStorage.getItem(getWorksStorageKey(activeUserId)));
+  if (scopedWorks) return scopedWorks;
+
+  if (source === 'local') {
+    return readStoredWorkList(localStorage.getItem(LEGACY_WORKS_KEY)) ?? [];
+  }
+
+  return [];
+}
+
+function getWorksStorageKey(activeUserId: string | null): string {
+  return activeUserId ? `${LEGACY_WORKS_KEY}:${activeUserId}` : LEGACY_WORKS_KEY;
+}
+
+function readStoredWorkList(raw: string | null): StoredWork[] | null {
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return null;
+    return parsed.filter(isStoredWork);
+  } catch {
+    return null;
+  }
+}
+
+function isStoredWork(value: unknown): value is StoredWork {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as StoredWork).id === 'number' &&
+    typeof (value as StoredWork).title === 'string' &&
+    typeof (value as StoredWork).genre === 'string' &&
+    typeof (value as StoredWork).mood === 'string' &&
+    ((value as StoredWork).status === 'saved' || (value as StoredWork).status === 'published') &&
+    typeof (value as StoredWork).audio === 'string'
   );
 }

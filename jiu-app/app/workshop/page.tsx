@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
+import { getActiveUserId } from '@/lib/auth/active-user';
 import { BirdPortrait } from '@/components/collection/BirdPortrait';
 import { BIRDS } from '@/lib/constants';
 import { useGlobalStore } from '@/stores/globalStore';
@@ -21,6 +22,17 @@ interface Draft {
   mood: string;
   voice: Voice;
   instruments: string[];
+}
+
+interface StoredWork {
+  id: number;
+  title: string;
+  genre: string;
+  mood: string;
+  status: 'saved' | 'published';
+  audio: string;
+  caption?: string;
+  emoji?: string;
 }
 
 const GENRES = [
@@ -59,8 +71,8 @@ const INSTRUMENTS = [
 
 const IDEAS = ['我的小猫', '快乐暑假', '梦里的星球', '送给妈妈'];
 const GENERATION_STEPS = ['正在读懂你的故事', '正在邀请乐器朋友', '小鸟正在最后排练'];
-const DRAFT_KEY = 'jiu_workshop_draft';
-const WORKS_KEY = 'jiu_workshop_works';
+const LEGACY_DRAFT_KEY = 'jiu_workshop_draft';
+const LEGACY_WORKS_KEY = 'jiu_workshop_works';
 
 const DEFAULT_DRAFT: Draft = {
   title: '',
@@ -91,7 +103,8 @@ function labelFor<T extends readonly { id: string; label: string }[]>(items: T, 
 }
 
 export default function WorkshopPage() {
-  const { addFragment, currentBirdId } = useGlobalStore();
+  const { addFragment, authState, currentBirdId } = useGlobalStore();
+  const activeUserId = getActiveUserId(authState);
   const bird = BIRDS.find((item) => item.id === currentBirdId) ?? BIRDS[0];
   const birdPortraitIndex = bird.atlasPosition.row * 3 + bird.atlasPosition.column + 1;
   const selectedBirdPortrait = `/images/birds/${birdPortraitIndex}.png`;
@@ -114,25 +127,29 @@ export default function WorkshopPage() {
   const generationRef = useRef(0);
 
   useEffect(() => {
+    setDraftReady(false);
     try {
-      const savedDraft = localStorage.getItem(DRAFT_KEY);
+      const savedDraft = readStoredDraft(activeUserId, authState.source);
       if (savedDraft) setDraft({ ...DEFAULT_DRAFT, ...JSON.parse(savedDraft) });
+      else setDraft(DEFAULT_DRAFT);
     } catch {
       // A fresh draft is safe if local storage is unavailable or malformed.
+      setDraft(DEFAULT_DRAFT);
     } finally {
       setDraftReady(true);
+      setSaved(true);
     }
-  }, []);
+  }, [activeUserId, authState.source]);
 
   useEffect(() => {
     if (!draftReady) return;
     setSaved(false);
     const timer = window.setTimeout(() => {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      localStorage.setItem(getDraftStorageKey(activeUserId), JSON.stringify(draft));
       setSaved(true);
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [draft, draftReady]);
+  }, [draft, draftReady, activeUserId]);
 
   useEffect(() => {
     if (!toast) return;
@@ -258,8 +275,8 @@ export default function WorkshopPage() {
       emoji: status === 'published' ? publishEmoji : '🎵',
       createdAt: new Date().toISOString(),
     };
-    const existing = JSON.parse(localStorage.getItem(WORKS_KEY) || '[]');
-    localStorage.setItem(WORKS_KEY, JSON.stringify([work, ...existing]));
+    const existing = readStoredWorks(activeUserId, authState.source);
+    localStorage.setItem(getWorksStorageKey(activeUserId), JSON.stringify([work, ...existing]));
   };
 
   const saveWork = () => {
@@ -854,5 +871,60 @@ export default function WorkshopPage() {
         )}
       </AnimatePresence>
     </main>
+  );
+}
+
+function getDraftStorageKey(activeUserId: string | null): string {
+  return activeUserId ? `${LEGACY_DRAFT_KEY}:${activeUserId}` : LEGACY_DRAFT_KEY;
+}
+
+function getWorksStorageKey(activeUserId: string | null): string {
+  return activeUserId ? `${LEGACY_WORKS_KEY}:${activeUserId}` : LEGACY_WORKS_KEY;
+}
+
+function readStoredDraft(activeUserId: string | null, source: 'local' | 'server'): string | null {
+  const scopedDraft = localStorage.getItem(getDraftStorageKey(activeUserId));
+  if (scopedDraft) return scopedDraft;
+
+  if (source === 'local') {
+    return localStorage.getItem(LEGACY_DRAFT_KEY);
+  }
+
+  return null;
+}
+
+function readStoredWorks(activeUserId: string | null, source: 'local' | 'server'): StoredWork[] {
+  const scopedWorks = readStoredWorkList(localStorage.getItem(getWorksStorageKey(activeUserId)));
+  if (scopedWorks) return scopedWorks;
+
+  if (source === 'local') {
+    return readStoredWorkList(localStorage.getItem(LEGACY_WORKS_KEY)) ?? [];
+  }
+
+  return [];
+}
+
+function readStoredWorkList(raw: string | null): StoredWork[] | null {
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return null;
+    return parsed.filter(isStoredWork);
+  } catch {
+    return null;
+  }
+}
+
+function isStoredWork(value: unknown): value is StoredWork {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as StoredWork).id === 'number' &&
+    typeof (value as StoredWork).title === 'string' &&
+    typeof (value as StoredWork).genre === 'string' &&
+    typeof (value as StoredWork).mood === 'string' &&
+    ((value as StoredWork).status === 'saved' || (value as StoredWork).status === 'published') &&
+    typeof (value as StoredWork).audio === 'string'
   );
 }
