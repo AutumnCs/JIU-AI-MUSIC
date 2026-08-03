@@ -3,6 +3,39 @@ import type { AuthState } from './types';
 const LOCAL_AUTH_STATE_KEY = 'jiu_auth_state';
 const LOCAL_GUEST_ID_KEY = 'jiu_user_id';
 
+function isAuthState(value: unknown): value is AuthState {
+  if (!isRecord(value) || (value.source !== 'local' && value.source !== 'server')) {
+    return false;
+  }
+
+  if (value.user !== null && !isAuthUser(value.user)) return false;
+  return value.session === null || isAuthSession(value.session);
+}
+
+function isAuthUser(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    value.id.length > 0 &&
+    (value.type === 'guest' || value.type === 'email') &&
+    (value.displayName === undefined || typeof value.displayName === 'string') &&
+    (value.email === undefined || typeof value.email === 'string')
+  );
+}
+
+function isAuthSession(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.userId === 'string' &&
+    typeof value.expiresAt === 'string'
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 export function getLocalGuestId(): string {
   const existingId = localStorage.getItem(LOCAL_GUEST_ID_KEY);
   if (existingId) return existingId;
@@ -16,7 +49,8 @@ export function readLocalAuthState(): AuthState {
   const saved = localStorage.getItem(LOCAL_AUTH_STATE_KEY);
   if (saved) {
     try {
-      return JSON.parse(saved) as AuthState;
+      const parsed = JSON.parse(saved) as unknown;
+      if (isAuthState(parsed)) return parsed;
     } catch {}
   }
 

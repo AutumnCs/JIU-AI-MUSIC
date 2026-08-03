@@ -69,7 +69,9 @@ export const useGlobalStore = create<GlobalState>((set, get) => ({
     const saved = localStorage.getItem('jiu_state');
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
+        const parsed = JSON.parse(saved) as Record<string, unknown>;
+        const { userId: _legacyUserId, ...persistedState } = parsed;
+        void _legacyUserId;
         const academyProgress = Object.fromEntries(
           Object.entries(parsed.academyProgress ?? {}).map(([id, value]) => {
             const progress = value as Partial<AcademyProgress>;
@@ -90,7 +92,7 @@ export const useGlobalStore = create<GlobalState>((set, get) => ({
           }),
         );
         set({
-          ...parsed,
+          ...persistedState,
           academyProgress,
           academySession: {
             levelId: null,
