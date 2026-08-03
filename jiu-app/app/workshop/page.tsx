@@ -520,10 +520,10 @@ export default function WorkshopPage() {
                         type="button"
                         aria-pressed={active}
                         onClick={() => updateDraft('genre', item.id)}
-                        className={`relative min-h-[58px] rounded-xl border-2 px-1 text-sm font-bold transition active:scale-95 ${active ? 'border-[#FF9F43] bg-[#FFF1DE] text-[#A45116]' : 'border-[#EEE6DF] bg-[#FCFAF8] text-[#6B625C]'}`}
+                        className={`relative min-h-[58px] rounded-xl border-2 px-1 text-sm font-bold transition active:scale-95 ${active ? 'border-[#52715E] bg-[#DFF3EF] text-[#3F6351]' : 'border-[#EEE6DF] bg-[#FCFAF8] text-[#6B625C]'}`}
                       >
                         <span className="mr-1" aria-hidden="true">{item.icon}</span>{item.label}
-                        {active && <span className="absolute right-1.5 top-1 text-[10px] text-[#E87824]">●</span>}
+                        {active && <span className="absolute right-1.5 top-1 text-[10px] text-[#52715E]">●</span>}
                       </button>
                     );
                   })}
