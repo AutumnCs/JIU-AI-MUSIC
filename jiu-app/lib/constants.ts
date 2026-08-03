@@ -177,7 +177,7 @@ export type FragmentType = (typeof FRAGMENT_TYPES)[number];
 
 export const STYLES = [
   { id: 'happy', label: '😊 欢快', color: '#FF9F43' },
-  { id: 'quiet', label: '🌙 安静', color: '#54A0FF' },
+  { id: 'quiet', label: '🌙 安静', color: '#52715E' },
   { id: 'dreamy', label: '✨ 梦幻', color: '#A29BFE' },
 ] as const;
 

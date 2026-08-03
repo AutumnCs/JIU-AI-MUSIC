@@ -377,7 +377,7 @@ export default function WorkshopPage() {
                     onChange={(event) => updateDraft('instrumental', event.target.checked)}
                     className="peer sr-only"
                   />
-                  <span className="relative h-7 w-12 rounded-full bg-[#D8D8D8] transition peer-checked:bg-[#54A0FF] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#54A0FF] after:absolute after:left-1 after:top-1 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:after:translate-x-5" />
+                  <span className="relative h-7 w-12 rounded-full bg-[#D8D8D8] transition peer-checked:bg-[#52715E] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#52715E] after:absolute after:left-1 after:top-1 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:after:translate-x-5" />
                 </label>
               </div>
 
@@ -479,7 +479,7 @@ export default function WorkshopPage() {
                       maxLength={160}
                       onChange={(event) => updateDraft('idea', event.target.value)}
                       placeholder="例如：在森林里散步时，轻松又梦幻的音乐……"
-                      className="min-h-28 w-full resize-none rounded-2xl border-2 border-[#DCEBFA] bg-[#F7FBFF] p-4 text-base leading-7 outline-none placeholder:text-[#9AAFC2] focus:border-[#79B7F5]"
+                      className="min-h-28 w-full resize-none rounded-2xl border-2 border-[#D7EBDF] bg-[#F6FBF7] p-4 text-base leading-7 outline-none placeholder:text-[#7F9A89] focus:border-[#7AA48A]"
                     />
                   </label>
                 )}
@@ -502,7 +502,7 @@ export default function WorkshopPage() {
 
             <section className="jiu-card p-4">
               <div className="mb-4 flex gap-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#54A0FF] text-sm font-black text-white">2</span>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#52715E] text-sm font-black text-white">2</span>
                 <div>
                   <h2 className="font-extrabold">歌曲是什么感觉</h2>
                   <p className="mt-0.5 text-xs text-[#8A7666]">每一组选择都会带来不同的声音</p>
@@ -541,10 +541,10 @@ export default function WorkshopPage() {
                         type="button"
                         aria-pressed={active}
                         onClick={() => updateDraft('mood', item.id)}
-                        className={`relative min-h-[58px] rounded-xl border-2 px-1 text-sm font-bold transition active:scale-95 ${active ? 'border-[#54A0FF] bg-[#EAF5FF] text-[#276AAB]' : 'border-[#EEE6DF] bg-[#FCFAF8] text-[#6B625C]'}`}
+                        className={`relative min-h-[58px] rounded-xl border-2 px-1 text-sm font-bold transition active:scale-95 ${active ? 'border-[#52715E] bg-[#DFF3EF] text-[#3F6351]' : 'border-[#EEE6DF] bg-[#FCFAF8] text-[#6B625C]'}`}
                       >
                         <span className="mr-1" aria-hidden="true">{item.icon}</span>{item.label}
-                        {active && <span className="absolute right-1.5 top-1 text-[10px] text-[#438FD8]">●</span>}
+                        {active && <span className="absolute right-1.5 top-1 text-[10px] text-[#52715E]">●</span>}
                       </button>
                     );
                   })}
@@ -633,7 +633,7 @@ export default function WorkshopPage() {
                 <h2 className="text-2xl font-black tracking-tight text-[#352B25]">《{resultTitle}》</h2>
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5 text-xs font-bold text-[#7A6B61]">
                   <span className="rounded-full bg-[#FFF1DE] px-2.5 py-1">{labelFor(GENRES, draft.genre)}</span>
-                  <span className="rounded-full bg-[#EAF5FF] px-2.5 py-1">{labelFor(MOODS, draft.mood)}</span>
+                  <span className="rounded-full bg-[#DFF3EF] px-2.5 py-1 text-[#3F6351]">{labelFor(MOODS, draft.mood)}</span>
                   {selectedInstrumentNames && <span className="rounded-full bg-[#F4EEFF] px-2.5 py-1">{selectedInstrumentNames}</span>}
                 </div>
 
