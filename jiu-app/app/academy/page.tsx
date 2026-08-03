@@ -26,29 +26,7 @@ export default function AcademyPage() {
             <span>已完成 </span><strong>{completedCount}</strong> / {LEVELS.length}
           </div>
         </div>
-        <div
-          className={styles.progressTrack}
-          role="progressbar"
-          aria-label="学院关卡进度"
-          aria-valuemin={0}
-          aria-valuemax={LEVELS.length}
-          aria-valuenow={completedCount}
-        >
-          <div
-            className={styles.progressFill}
-            style={{ width: `${(completedCount / LEVELS.length) * 100}%` }}
-          />
-        </div>
       </header>
-
-      <section className={styles.journeyCard} aria-label="当前学习旅程">
-        <div>
-          <p className={styles.journeyEyebrow}>CURRENT JOURNEY · 当前旅程</p>
-          <h2>沿着音乐小径继续前进</h2>
-          <p>完成每一站练习，解锁新的旋律与奖励。</p>
-        </div>
-        <span className={styles.journeyMark} aria-hidden="true">✦</span>
-      </section>
 
       <div className={styles.mapFrame}>
         <AcademyMap progress={academyProgress} />
