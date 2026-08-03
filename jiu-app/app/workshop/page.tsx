@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import Image from 'next/image';
 import { BirdPortrait } from '@/components/collection/BirdPortrait';
 import { BIRDS } from '@/lib/constants';
 import { useGlobalStore } from '@/stores/globalStore';
@@ -709,10 +710,30 @@ export default function WorkshopPage() {
             <motion.div
               animate={{ y: [0, -12, 0], rotate: [-2, 3, -2] }}
               transition={{ duration: 1.7, repeat: Infinity, ease: 'easeInOut' }}
-              className="relative h-48 w-48"
+              className="relative h-52 w-52"
             >
-              <div className="absolute inset-4 rounded-full bg-white/65 shadow-[0_16px_44px_rgba(210,139,78,0.2)]" />
-              <BirdPortrait bird={bird} className="absolute inset-0" />
+              <div className="absolute inset-0 rounded-full bg-white/65 shadow-[0_16px_44px_rgba(210,139,78,0.2)] ring-8 ring-white/35" />
+              <div className="absolute inset-4 rounded-full bg-gradient-to-br from-white/80 via-[#FFF7D6]/75 to-[#DDF4FF]/75" />
+              <motion.div
+                animate={{ scale: [1, 1.04, 1], rotate: [-1, 1, -1] }}
+                transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+                className="absolute inset-7 flex items-center justify-center"
+              >
+                <Image
+                  src={bird.avatar}
+                  alt={bird.name}
+                  fill
+                  sizes="176px"
+                  className="h-full w-full object-contain drop-shadow-[0_12px_12px_rgba(103,78,58,0.22)]"
+                />
+              </motion.div>
+              <motion.div
+                animate={{ y: [0, -3, 0] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+                className="absolute -right-6 top-2 rounded-2xl rounded-bl-md bg-white px-3 py-2 text-xs font-extrabold text-[#6B5548] shadow-md ring-1 ring-[#F2E5D9]"
+              >
+                我来帮你排练！
+              </motion.div>
             </motion.div>
             <p className="mt-6 text-xl font-black text-[#3F352E]">{GENERATION_STEPS[generateStep]}…</p>
             <p className="mt-2 text-sm font-semibold text-[#8A7666]">通常需要一点时间，请听听小鸟的排练声</p>
