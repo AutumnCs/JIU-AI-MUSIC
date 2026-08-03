@@ -87,6 +87,10 @@ function getBackend(): Backend {
     throw new Error('DATABASE_URL must be set in production.');
   }
 
+  if (process.env.JIU_ALLOW_LOCAL_AUTH_STORE !== 'true') {
+    throw new Error('Set JIU_ALLOW_LOCAL_AUTH_STORE=true for local smoke tests.');
+  }
+
   return fileBackend;
 }
 

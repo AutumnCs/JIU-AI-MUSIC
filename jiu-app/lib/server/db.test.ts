@@ -41,12 +41,14 @@ test('development fallback persists to the configured local store', async () => 
   const previousEnvironment = process.env.NODE_ENV;
   const previousDatabaseUrl = process.env.DATABASE_URL;
   const previousStorePath = process.env.JIU_AUTH_STORE_PATH;
+  const previousLocalStoreFlag = process.env.JIU_ALLOW_LOCAL_AUTH_STORE;
   const tempDirectory = await mkdtemp(join(tmpdir(), 'jiu-auth-store-'));
   const storePath = join(tempDirectory, 'auth-store.json');
 
   process.env.NODE_ENV = 'development';
   delete process.env.DATABASE_URL;
   process.env.JIU_AUTH_STORE_PATH = storePath;
+  process.env.JIU_ALLOW_LOCAL_AUTH_STORE = 'true';
 
   try {
     const user = await createGuestUserRecord();
@@ -77,6 +79,12 @@ test('development fallback persists to the configured local store', async () => 
       delete process.env.JIU_AUTH_STORE_PATH;
     } else {
       process.env.JIU_AUTH_STORE_PATH = previousStorePath;
+    }
+
+    if (previousLocalStoreFlag === undefined) {
+      delete process.env.JIU_ALLOW_LOCAL_AUTH_STORE;
+    } else {
+      process.env.JIU_ALLOW_LOCAL_AUTH_STORE = previousLocalStoreFlag;
     }
 
     await rm(tempDirectory, { recursive: true, force: true });
