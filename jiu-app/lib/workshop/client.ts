@@ -38,13 +38,17 @@ export function createWorkshopClient(
   source: 'local' | 'server',
   options: { baseUrl?: string; sampleAudioUrl?: string } = {},
 ): WorkshopClient {
-  const provider = createWorkshopProvider(options);
+  const provider = createWorkshopProvider({
+    baseUrl: source === 'server' ? resolveBaseUrl(options.baseUrl) : options.baseUrl,
+    sampleAudioUrl: options.sampleAudioUrl,
+  });
+  const fallbackProvider = createWorkshopProvider({ sampleAudioUrl: options.sampleAudioUrl });
 
   return {
     readDraft: () => readWorkshopDraft(activeUserId, source) ?? copyDraft(DEFAULT_DRAFT),
     readWorks: () => readWorkshopWorks(activeUserId, source),
     writeDraft: (draft) => writeWorkshopDraft(activeUserId, draft),
-    generate: (draft, onProgress) => generateWithProvider(provider, draft, onProgress),
+    generate: (draft, onProgress) => generateWithProvider(provider, fallbackProvider, draft, onProgress),
     writeWork: (result, work) => writeWorkshopWork(activeUserId, {
       ...work,
       audio: result.audioUrl,
@@ -59,10 +63,17 @@ export function createWorkshopClient(
 
 async function generateWithProvider(
   provider: WorkshopProvider,
+  fallbackProvider: WorkshopProvider,
   draft: WorkshopDraft,
   onProgress?: (task: WorkshopTask) => void,
 ): Promise<WorkshopTask> {
-  let task = await provider.createTask(draft);
+  let task: WorkshopTask;
+  try {
+    task = await provider.createTask(draft);
+  } catch (error) {
+    if (provider.provider !== 'upstream') throw error;
+    task = await fallbackProvider.createTask(draft);
+  }
   onProgress?.(task);
 
   while ((task.status === 'queued' || task.status === 'running') && provider.getTask) {
@@ -82,4 +93,15 @@ function copyDraft(draft: WorkshopDraft): WorkshopDraft {
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => globalThis.setTimeout(resolve, milliseconds));
+}
+
+function resolveBaseUrl(baseUrl?: string): string | undefined {
+  const trimmed = baseUrl?.trim();
+  if (trimmed) return trimmed;
+
+  if (typeof globalThis.location?.origin === 'string' && globalThis.location.origin.trim()) {
+    return globalThis.location.origin.trim();
+  }
+
+  return undefined;
 }

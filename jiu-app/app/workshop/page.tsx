@@ -207,7 +207,6 @@ export default function WorkshopPage() {
     }
     if (generationRef.current !== generationId) return;
 
-    setResultTitle(draft.title.trim() || (draft.instrumental ? '会飞的旋律' : '星光小旅行'));
     try {
       const task = await generation;
       if (generationRef.current !== generationId) return;
@@ -217,6 +216,7 @@ export default function WorkshopPage() {
         return;
       }
       setGenerationResult(task.result);
+      setResultTitle(task.result.title?.trim() || draft.title.trim() || (draft.instrumental ? '会飞的旋律' : '星光小旅行'));
     } catch {
       if (generationRef.current !== generationId) return;
       setView('create');
@@ -257,6 +257,7 @@ export default function WorkshopPage() {
 
   const persistWork = (status: 'saved' | 'published') => {
     if (!generationResult) return;
+    const audioUrl = generationResult.audioUrl ?? '/audio/sample-song.mp3';
     const work = {
       id: Date.now(),
       title: resultTitle,
@@ -265,7 +266,7 @@ export default function WorkshopPage() {
       mood: draft.mood,
       instruments: draft.instruments,
       status,
-      audio: '/audio/sample-song.mp3',
+      audio: audioUrl,
       caption: status === 'published' ? publishText.trim() : '',
       emoji: status === 'published' ? publishEmoji : '🎵',
       createdAt: new Date().toISOString(),

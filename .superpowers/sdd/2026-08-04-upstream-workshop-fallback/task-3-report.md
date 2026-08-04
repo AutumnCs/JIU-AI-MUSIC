@@ -3,8 +3,8 @@
 ## What I implemented
 
 - Added `createWorkshopClient(activeUserId, source, options)` in `jiu-app/lib/workshop/client.ts`.
-- The client owns default-draft fallback, scoped draft and work storage access, provider creation, generation task polling, and provider-result persistence.
-- Refactored `app/workshop/page.tsx` to use the client for draft loading/autosave, task generation, saved/published work persistence, and generated audio URLs.
+- The client owns default-draft fallback, scoped draft and work storage access, upstream-or-local provider selection, generation task polling, and provider-result persistence.
+- Refactored `app/workshop/page.tsx` to use the client for draft loading/autosave, task generation, saved/published work persistence, generated audio URLs, and display-title normalization.
 - Kept the existing workshop UI, copy, generation-step animation, audio controls, and publish flow intact.
 
 ## What I tested and test results
@@ -49,7 +49,7 @@ Result after implementation: `pass 1`, `fail 0`.
 
 - No blocking findings.
 - Confirmed the workshop page no longer directly accesses `localStorage` or duplicates storage key/read helpers.
-- Confirmed generated work persistence uses the shared provider result for audio URL, genre, mood, source provider, lyrics, and instruments.
+- Confirmed generated work persistence uses the shared provider result for audio URL, genre, mood, source provider, lyrics, and instruments, while the visible title stays normalized at the page boundary.
 - Confirmed unrelated community-page code was not changed.
 
 ## Any issues or concerns
