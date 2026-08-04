@@ -79,6 +79,41 @@ test('writes scoped works and keeps legacy write for anonymous mode', () => {
   assert.deepEqual(readWorkshopWorks('user-2', 'server'), []);
 });
 
+test('reads scoped published works before legacy keys for community rendering', () => {
+  const storage = createMemoryStorage();
+  setStorage(storage);
+
+  storage.setItem(getWorkshopWorksStorageKey('user-1'), JSON.stringify([
+    {
+      id: 11,
+      title: 'Scoped Song',
+      status: 'published',
+      audio: 'https://cdn.example/scoped.mp3',
+      genre: 'pop',
+      mood: 'happy',
+      createdAt: '2026-08-04T00:00:00.000Z',
+      sourceProvider: 'upstream',
+    },
+  ]));
+  storage.setItem('jiu_workshop_works', JSON.stringify([
+    {
+      id: 22,
+      title: 'Legacy Song',
+      status: 'published',
+      audio: 'https://cdn.example/legacy.mp3',
+      genre: 'rock',
+      mood: 'relaxed',
+      createdAt: '2026-08-04T00:00:00.000Z',
+      sourceProvider: 'local',
+    },
+  ]));
+
+  const scoped = readWorkshopWorks('user-1', 'server');
+  assert.equal(scoped[0]?.title, 'Scoped Song');
+  assert.equal(scoped[0]?.audio, 'https://cdn.example/scoped.mp3');
+  assert.equal(readWorkshopWorks('user-2', 'local')[0]?.title, 'Legacy Song');
+});
+
 test('ignores invalid json instead of throwing', () => {
   const storage = createMemoryStorage();
   setStorage(storage);
