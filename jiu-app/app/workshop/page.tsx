@@ -7,33 +7,10 @@ import { getActiveUserId } from '@/lib/auth/active-user';
 import { BirdPortrait } from '@/components/collection/BirdPortrait';
 import { BIRDS } from '@/lib/constants';
 import { useGlobalStore } from '@/stores/globalStore';
+import { createWorkshopClient } from '@/lib/workshop/client';
+import type { WorkshopDraft, WorkshopGenerationResult } from '@/lib/workshop/types';
 
-type LyricsMode = 'ai' | 'write' | 'continue';
 type WorkshopView = 'create' | 'generating' | 'result';
-type Voice = 'female' | 'male';
-
-interface Draft {
-  title: string;
-  idea: string;
-  lyrics: string;
-  lyricsMode: LyricsMode;
-  instrumental: boolean;
-  genre: string;
-  mood: string;
-  voice: Voice;
-  instruments: string[];
-}
-
-interface StoredWork {
-  id: number;
-  title: string;
-  genre: string;
-  mood: string;
-  status: 'saved' | 'published';
-  audio: string;
-  caption?: string;
-  emoji?: string;
-}
 
 const GENRES = [
   { id: 'pop', label: '流行', icon: '🎤' },
@@ -71,10 +48,7 @@ const INSTRUMENTS = [
 
 const IDEAS = ['我的小猫', '快乐暑假', '梦里的星球', '送给妈妈'];
 const GENERATION_STEPS = ['正在读懂你的故事', '正在邀请乐器朋友', '小鸟正在最后排练'];
-const LEGACY_DRAFT_KEY = 'jiu_workshop_draft';
-const LEGACY_WORKS_KEY = 'jiu_workshop_works';
-
-const DEFAULT_DRAFT: Draft = {
+const DEFAULT_DRAFT: WorkshopDraft = {
   title: '',
   idea: '',
   lyrics: '',
@@ -108,13 +82,18 @@ export default function WorkshopPage() {
   const bird = BIRDS.find((item) => item.id === currentBirdId) ?? BIRDS[0];
   const birdPortraitIndex = bird.atlasPosition.row * 3 + bird.atlasPosition.column + 1;
   const selectedBirdPortrait = `/images/birds/${birdPortraitIndex}.png`;
-  const [draft, setDraft] = useState<Draft>(DEFAULT_DRAFT);
+  const client = useMemo(
+    () => createWorkshopClient(activeUserId, authState.source, { sampleAudioUrl: '/audio/sample-song.mp3' }),
+    [activeUserId, authState.source],
+  );
+  const [draft, setDraft] = useState<WorkshopDraft>(DEFAULT_DRAFT);
   const [view, setView] = useState<WorkshopView>('create');
   const [draftReady, setDraftReady] = useState(false);
   const [saved, setSaved] = useState(true);
   const [generateStep, setGenerateStep] = useState(0);
   const [generated, setGenerated] = useState(false);
   const [resultTitle, setResultTitle] = useState('');
+  const [generationResult, setGenerationResult] = useState<WorkshopGenerationResult | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -129,9 +108,7 @@ export default function WorkshopPage() {
   useEffect(() => {
     setDraftReady(false);
     try {
-      const savedDraft = readStoredDraft(activeUserId, authState.source);
-      if (savedDraft) setDraft({ ...DEFAULT_DRAFT, ...JSON.parse(savedDraft) });
-      else setDraft(DEFAULT_DRAFT);
+      setDraft(client.readDraft());
     } catch {
       // A fresh draft is safe if local storage is unavailable or malformed.
       setDraft(DEFAULT_DRAFT);
@@ -139,17 +116,17 @@ export default function WorkshopPage() {
       setDraftReady(true);
       setSaved(true);
     }
-  }, [activeUserId, authState.source]);
+  }, [client]);
 
   useEffect(() => {
     if (!draftReady) return;
     setSaved(false);
     const timer = window.setTimeout(() => {
-      localStorage.setItem(getDraftStorageKey(activeUserId), JSON.stringify(draft));
+      client.writeDraft(draft);
       setSaved(true);
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [draft, draftReady, activeUserId]);
+  }, [client, draft, draftReady]);
 
   useEffect(() => {
     if (!toast) return;
@@ -163,7 +140,7 @@ export default function WorkshopPage() {
     return Boolean(draft.lyrics.trim());
   }, [draft]);
 
-  const updateDraft = <K extends keyof Draft>(key: K, value: Draft[K]) => {
+  const updateDraft = <K extends keyof WorkshopDraft>(key: K, value: WorkshopDraft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
   };
 
@@ -215,11 +192,13 @@ export default function WorkshopPage() {
     const finalLyrics = draft.instrumental
       ? ''
       : draft.lyrics.trim() || buildLyrics(draft.idea);
+    const generationDraft = { ...draft, lyrics: finalLyrics };
     if (finalLyrics !== draft.lyrics) updateDraft('lyrics', finalLyrics);
 
     setGenerateStep(0);
     setView('generating');
     setIsPlaying(false);
+    const generation = client.generate(generationDraft);
 
     for (let step = 0; step < GENERATION_STEPS.length; step += 1) {
       if (generationRef.current !== generationId) return;
@@ -229,6 +208,21 @@ export default function WorkshopPage() {
     if (generationRef.current !== generationId) return;
 
     setResultTitle(draft.title.trim() || (draft.instrumental ? '会飞的旋律' : '星光小旅行'));
+    try {
+      const task = await generation;
+      if (generationRef.current !== generationId) return;
+      if (task.status !== 'succeeded' || !task.result) {
+        setView('create');
+        setToast('暂时无法完成创作，请再试一次');
+        return;
+      }
+      setGenerationResult(task.result);
+    } catch {
+      if (generationRef.current !== generationId) return;
+      setView('create');
+      setToast('暂时无法完成创作，请再试一次');
+      return;
+    }
     setGenerated(true);
     setView('result');
     setCurrentTime(0);
@@ -262,6 +256,7 @@ export default function WorkshopPage() {
   };
 
   const persistWork = (status: 'saved' | 'published') => {
+    if (!generationResult) return;
     const work = {
       id: Date.now(),
       title: resultTitle,
@@ -275,8 +270,7 @@ export default function WorkshopPage() {
       emoji: status === 'published' ? publishEmoji : '🎵',
       createdAt: new Date().toISOString(),
     };
-    const existing = readStoredWorks(activeUserId, authState.source);
-    localStorage.setItem(getWorksStorageKey(activeUserId), JSON.stringify([work, ...existing]));
+    client.writeWork(generationResult, work);
   };
 
   const saveWork = () => {
@@ -656,7 +650,7 @@ export default function WorkshopPage() {
 
                 <audio
                   ref={audioRef}
-                  src="/audio/sample-song.mp3"
+                  src={generationResult?.audioUrl ?? '/audio/sample-song.mp3'}
                   preload="metadata"
                   onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
                   onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
@@ -871,60 +865,5 @@ export default function WorkshopPage() {
         )}
       </AnimatePresence>
     </main>
-  );
-}
-
-function getDraftStorageKey(activeUserId: string | null): string {
-  return activeUserId ? `${LEGACY_DRAFT_KEY}:${activeUserId}` : LEGACY_DRAFT_KEY;
-}
-
-function getWorksStorageKey(activeUserId: string | null): string {
-  return activeUserId ? `${LEGACY_WORKS_KEY}:${activeUserId}` : LEGACY_WORKS_KEY;
-}
-
-function readStoredDraft(activeUserId: string | null, source: 'local' | 'server'): string | null {
-  const scopedDraft = localStorage.getItem(getDraftStorageKey(activeUserId));
-  if (scopedDraft) return scopedDraft;
-
-  if (source === 'local') {
-    return localStorage.getItem(LEGACY_DRAFT_KEY);
-  }
-
-  return null;
-}
-
-function readStoredWorks(activeUserId: string | null, source: 'local' | 'server'): StoredWork[] {
-  const scopedWorks = readStoredWorkList(localStorage.getItem(getWorksStorageKey(activeUserId)));
-  if (scopedWorks) return scopedWorks;
-
-  if (source === 'local') {
-    return readStoredWorkList(localStorage.getItem(LEGACY_WORKS_KEY)) ?? [];
-  }
-
-  return [];
-}
-
-function readStoredWorkList(raw: string | null): StoredWork[] | null {
-  if (!raw) return null;
-
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return null;
-    return parsed.filter(isStoredWork);
-  } catch {
-    return null;
-  }
-}
-
-function isStoredWork(value: unknown): value is StoredWork {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as StoredWork).id === 'number' &&
-    typeof (value as StoredWork).title === 'string' &&
-    typeof (value as StoredWork).genre === 'string' &&
-    typeof (value as StoredWork).mood === 'string' &&
-    ((value as StoredWork).status === 'saved' || (value as StoredWork).status === 'published') &&
-    typeof (value as StoredWork).audio === 'string'
   );
 }
