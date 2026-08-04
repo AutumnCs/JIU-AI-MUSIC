@@ -1,18 +1,32 @@
-export type WorkshopLyricsMode = 'ai' | 'write' | 'continue';
-export type WorkshopVoice = 'female' | 'male';
+export type WorkshopProviderName = 'upstream' | 'local';
+
 export type WorkshopTaskStatus = 'idle' | 'queued' | 'running' | 'succeeded' | 'failed';
-export type WorkshopProviderName = 'local' | 'upstream';
+
+export type LyricsMode = 'ai' | 'write' | 'continue';
+export type Voice = 'female' | 'male';
 
 export interface WorkshopDraft {
   title: string;
   idea: string;
   lyrics: string;
-  lyricsMode: WorkshopLyricsMode;
+  lyricsMode: LyricsMode;
   instrumental: boolean;
   genre: string;
   mood: string;
-  voice: WorkshopVoice;
+  voice: Voice;
   instruments: string[];
+}
+
+export interface WorkshopTask {
+  id: string;
+  status: WorkshopTaskStatus;
+  provider: WorkshopProviderName;
+  request: WorkshopDraft;
+  createdAt: string;
+  updatedAt: string;
+  errorMessage?: string;
+  progressStep?: string;
+  result?: WorkshopGenerationResult;
 }
 
 export interface WorkshopGenerationResult {
@@ -25,36 +39,28 @@ export interface WorkshopGenerationResult {
   mood: string;
   instruments: string[];
   sourceProvider: WorkshopProviderName;
-}
-
-export interface WorkshopTask {
-  id: string;
-  status: WorkshopTaskStatus;
-  provider: WorkshopProviderName;
-  draft: WorkshopDraft;
-  progressSteps: string[];
-  createdAt: string;
-  updatedAt: string;
-  result?: WorkshopGenerationResult;
-  errorMessage?: string;
+  caption?: string;
+  emoji?: string;
 }
 
 export interface PublishedWork {
-  id: string | number;
+  id: number;
   title: string;
-  lyrics: string;
-  genre: string;
-  mood: string;
-  instruments: string[];
   status: 'saved' | 'published';
   audio: string;
-  caption: string;
-  emoji: string;
+  caption?: string;
+  emoji?: string;
+  genre: string;
+  mood: string;
   createdAt: string;
-  authorId: string;
-  sourceProvider: WorkshopProviderName;
+  authorId?: string;
+  sourceProvider?: WorkshopProviderName;
+  lyrics?: string;
+  instruments?: string[];
 }
 
 export interface WorkshopProvider {
+  provider: WorkshopProviderName;
   createTask(draft: WorkshopDraft): Promise<WorkshopTask>;
+  getTask?(taskId: string): Promise<WorkshopTask | null>;
 }

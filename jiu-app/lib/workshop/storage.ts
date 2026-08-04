@@ -1,59 +1,64 @@
-import { normalizeStoredDraft, normalizeStoredPublishedWorks } from './normalize.ts';
 import type { PublishedWork, WorkshopDraft } from './types.ts';
+import { normalizeStoredDraft, normalizeStoredPublishedWorks } from './normalize.ts';
 
-const DRAFT_STORAGE_KEY = 'jiu_workshop_draft';
-const WORKS_STORAGE_KEY = 'jiu_workshop_works';
+const DRAFT_KEY = 'jiu_workshop_draft';
+const WORKS_KEY = 'jiu_workshop_works';
 
-type StorageSource = 'local' | 'server';
-
-export function readWorkshopDraft(activeUserId: string | null, source: StorageSource): WorkshopDraft | null {
-  const scopedRaw = getStorageItem(getDraftStorageKey(activeUserId));
-  if (scopedRaw !== null) return normalizeStoredDraft(scopedRaw);
-
-  return source === 'local' ? normalizeStoredDraft(getStorageItem(DRAFT_STORAGE_KEY)) : null;
+export function getWorkshopDraftStorageKey(activeUserId: string | null): string {
+  return activeUserId ? `${DRAFT_KEY}:${activeUserId}` : DRAFT_KEY;
 }
 
-export function readWorkshopWorks(activeUserId: string | null, source: StorageSource): PublishedWork[] {
-  const scopedRaw = getStorageItem(getWorksStorageKey(activeUserId));
-  if (scopedRaw !== null) return normalizeStoredPublishedWorks(scopedRaw) ?? [];
+export function getWorkshopWorksStorageKey(activeUserId: string | null): string {
+  return activeUserId ? `${WORKS_KEY}:${activeUserId}` : WORKS_KEY;
+}
 
-  return source === 'local' ? normalizeStoredPublishedWorks(getStorageItem(WORKS_STORAGE_KEY)) ?? [] : [];
+export function readWorkshopDraft(activeUserId: string | null, source: 'local' | 'server'): WorkshopDraft | null {
+  const storage = getStorage();
+  if (!storage) return null;
+
+  const scoped = normalizeStoredDraft(storage.getItem(getWorkshopDraftStorageKey(activeUserId)));
+  if (scoped) return scoped;
+
+  if (source !== 'local') return null;
+  return normalizeStoredDraft(storage.getItem(DRAFT_KEY));
+}
+
+export function readWorkshopWorks(activeUserId: string | null, source: 'local' | 'server'): PublishedWork[] {
+  const storage = getStorage();
+  if (!storage) return [];
+
+  const scoped = normalizeStoredPublishedWorks(storage.getItem(getWorkshopWorksStorageKey(activeUserId)));
+  if (scoped) return scoped;
+
+  if (source !== 'local') return [];
+  return normalizeStoredPublishedWorks(storage.getItem(WORKS_KEY)) ?? [];
 }
 
 export function writeWorkshopDraft(activeUserId: string | null, draft: WorkshopDraft): void {
-  setStorageItem(getDraftStorageKey(activeUserId), JSON.stringify(draft));
+  const storage = getStorage();
+  if (!storage) return;
+
+  const serialized = JSON.stringify(draft);
+  storage.setItem(getWorkshopDraftStorageKey(activeUserId), serialized);
+  if (!activeUserId) {
+    storage.setItem(DRAFT_KEY, serialized);
+  }
 }
 
 export function writeWorkshopWork(activeUserId: string | null, work: PublishedWork): void {
-  const key = getWorksStorageKey(activeUserId);
-  const existing = normalizeStoredPublishedWorks(getStorageItem(key)) ?? [];
-  setStorageItem(key, JSON.stringify([work, ...existing]));
-}
+  const storage = getStorage();
+  if (!storage) return;
 
-function getDraftStorageKey(activeUserId: string | null): string {
-  return activeUserId ? `${DRAFT_STORAGE_KEY}:${activeUserId}` : DRAFT_STORAGE_KEY;
-}
-
-function getWorksStorageKey(activeUserId: string | null): string {
-  return activeUserId ? `${WORKS_STORAGE_KEY}:${activeUserId}` : WORKS_STORAGE_KEY;
-}
-
-function getStorageItem(key: string): string | null {
-  if (typeof localStorage === 'undefined') return null;
-
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
+  const existing = readWorkshopWorks(activeUserId, 'local');
+  const next = [work, ...existing.filter((item) => item.id !== work.id)];
+  const serialized = JSON.stringify(next);
+  storage.setItem(getWorkshopWorksStorageKey(activeUserId), serialized);
+  if (!activeUserId) {
+    storage.setItem(WORKS_KEY, serialized);
   }
 }
 
-function setStorageItem(key: string, value: string): void {
-  if (typeof localStorage === 'undefined') return;
-
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Storage is best-effort so unavailable browser storage never breaks the workshop.
-  }
+function getStorage(): Storage | null {
+  if (typeof globalThis === 'undefined' || !('localStorage' in globalThis)) return null;
+  return globalThis.localStorage;
 }
