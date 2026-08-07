@@ -1,0 +1,14 @@
+# Local and generated files for the monorepo.
+node_modules/
+.next/
+.open-next/
+.wrangler/
+out/
+dist/
+build/
+coverage/
+.env*
+.dev.vars
+.neon
+*.tsbuildinfo
+next-env.d.ts

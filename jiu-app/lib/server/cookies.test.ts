@@ -5,11 +5,12 @@ import test from 'node:test';
 import { readSessionId } from './cookies.ts';
 
 test('rejects requests in production when AUTH_COOKIE_SECRET is missing', () => {
-  const previousEnvironment = process.env.NODE_ENV;
-  const previousSecret = process.env.AUTH_COOKIE_SECRET;
+  const environment = process.env as Record<string, string | undefined>;
+  const previousEnvironment = environment.NODE_ENV;
+  const previousSecret = environment.AUTH_COOKIE_SECRET;
 
-  process.env.NODE_ENV = 'production';
-  delete process.env.AUTH_COOKIE_SECRET;
+  environment.NODE_ENV = 'production';
+  delete environment.AUTH_COOKIE_SECRET;
 
   try {
     const sessionId = 'session-id';
@@ -23,15 +24,15 @@ test('rejects requests in production when AUTH_COOKIE_SECRET is missing', () => 
     assert.throws(() => readSessionId(request), /AUTH_COOKIE_SECRET/);
   } finally {
     if (previousEnvironment === undefined) {
-      delete process.env.NODE_ENV;
+      delete environment.NODE_ENV;
     } else {
-      process.env.NODE_ENV = previousEnvironment;
+      environment.NODE_ENV = previousEnvironment;
     }
 
     if (previousSecret === undefined) {
-      delete process.env.AUTH_COOKIE_SECRET;
+      delete environment.AUTH_COOKIE_SECRET;
     } else {
-      process.env.AUTH_COOKIE_SECRET = previousSecret;
+      environment.AUTH_COOKIE_SECRET = previousSecret;
     }
   }
 });

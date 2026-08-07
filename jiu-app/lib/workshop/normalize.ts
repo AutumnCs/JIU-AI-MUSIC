@@ -62,6 +62,7 @@ export function normalizeStoredPublishedWorks(raw: string | null): PublishedWork
 
     const work: PublishedWork = {
       id: entry.id,
+      taskId: typeof entry.taskId === 'string' ? entry.taskId : undefined,
       title: entry.title,
       status: entry.status as 'saved' | 'published',
       audio: entry.audio,
@@ -137,6 +138,7 @@ export function normalizeWorkshopGenerationResult(raw: unknown): WorkshopGenerat
 export function normalizePublishedWorkFromResult(result: WorkshopGenerationResult, status: 'saved' | 'published'): PublishedWork {
   return {
     id: Date.now(),
+    taskId: result.taskId,
     title: result.title,
     status,
     audio: result.audioUrl,

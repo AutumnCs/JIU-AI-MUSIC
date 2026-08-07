@@ -45,6 +45,7 @@ export interface WorkshopGenerationResult {
 
 export interface PublishedWork {
   id: number;
+  taskId?: string;
   title: string;
   status: 'saved' | 'published';
   audio: string;

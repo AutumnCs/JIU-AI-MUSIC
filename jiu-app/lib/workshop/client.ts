@@ -1,4 +1,5 @@
 import { createWorkshopProvider } from './provider.ts';
+import { createMusicWorkshopProvider } from './music-provider.ts';
 import {
   readWorkshopDraft,
   readWorkshopWorks,
@@ -42,15 +43,19 @@ export function createWorkshopClient(
     baseUrl: source === 'server' ? resolveBaseUrl(options.baseUrl) : options.baseUrl,
     sampleAudioUrl: options.sampleAudioUrl,
   });
+  const musicProvider = source === 'server'
+    ? createMusicWorkshopProvider({ baseUrl: resolveBaseUrl(options.baseUrl) ?? '' })
+    : null;
   const fallbackProvider = createWorkshopProvider({ sampleAudioUrl: options.sampleAudioUrl });
 
   return {
     readDraft: () => readWorkshopDraft(activeUserId, source) ?? copyDraft(DEFAULT_DRAFT),
     readWorks: () => readWorkshopWorks(activeUserId, source),
     writeDraft: (draft) => writeWorkshopDraft(activeUserId, draft),
-    generate: (draft, onProgress) => generateWithProvider(provider, fallbackProvider, draft, onProgress),
+    generate: (draft, onProgress) => generateWithProvider(musicProvider ?? provider, fallbackProvider, draft, onProgress),
     writeWork: (result, work) => writeWorkshopWork(activeUserId, {
       ...work,
+      taskId: result.taskId,
       audio: result.audioUrl,
       genre: result.genre,
       mood: result.mood,

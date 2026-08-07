@@ -21,41 +21,22 @@ test('workshop client reads scoped drafts, writes scoped work, and uses upstream
   }));
 
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = String(input);
-    if (url.endsWith('/api/workshop/generate')) {
+    if (url.endsWith('/api/music/create')) {
       return new Response(JSON.stringify({
-        id: 'task-1',
-        status: 'queued',
-        request: JSON.parse(String(init?.body)),
+        taskId: 'task-1',
+        track: 'vocal',
       }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
 
-    if (url.endsWith('/api/workshop/tasks/task-1')) {
+    if (url.endsWith('/api/music/status/task-1')) {
       return new Response(JSON.stringify({
-        id: 'task-1',
-        status: 'completed',
-        request: {
-          title: 'Scoped draft',
-          idea: 'A song about moonlight',
-          lyrics: 'Lyrics',
-          lyricsMode: 'ai',
-          instrumental: false,
-          genre: 'pop',
-          mood: 'happy',
-          voice: 'female',
-          instruments: ['piano'],
-        },
-        result: {
-          taskId: 'task-1',
-          title: 'Moonlight',
-          lyrics: 'Lyrics',
-          audioUrl: 'https://cdn.example/song.mp3',
-          genre: 'pop',
-          mood: 'happy',
-          instruments: ['piano'],
-          sourceProvider: 'upstream',
-        },
+        taskId: 'task-1',
+        status: 'success',
+        progress: 100,
+        lyrics: 'Lyrics',
+        audioUrl: 'https://cdn.example/song.mp3',
       }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
 

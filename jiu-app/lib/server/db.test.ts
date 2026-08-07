@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   createGuestUserRecord,
   createPostgresBackend,
+  type MusicTask,
   resolveDatabaseUrl,
 } from './db.ts';
 
@@ -87,6 +88,41 @@ test('createPostgresBackend persists guest users and sessions through sql', asyn
   assert.notEqual(revokedSession.revokedAt, null);
 });
 
+test('createPostgresBackend persists and scopes music tasks by user', async () => {
+  const state = {
+    users: new Map<string, StoredUserRow>(),
+    sessions: new Map<string, StoredSessionRow>(),
+    musicTasks: new Map<string, MusicTask>(),
+  };
+  const backend = createPostgresBackend(createSqlStub(state));
+
+  const task = await backend.createMusicTaskRecord({
+    userId: 'user-a',
+    providerTaskId: 'provider-task-1',
+    track: 'instrumental',
+    requestPayload: { text: '一段轻快的钢琴曲' },
+  });
+
+  assert.equal(task.userId, 'user-a');
+  assert.equal(task.status, 'pending');
+  assert.deepEqual(task.requestPayload, { text: '一段轻快的钢琴曲' });
+  assert.deepEqual(
+    await backend.findMusicTaskRecord('provider-task-1', 'user-a'),
+    task,
+  );
+  assert.equal(await backend.findMusicTaskRecord('provider-task-1', 'user-b'), null);
+
+  const updated = await backend.updateMusicTaskRecord('provider-task-1', 'user-a', {
+    status: 'success',
+    progress: 100,
+    audioUrl: 'https://example.test/song.wav',
+  });
+  assert.ok(updated);
+  assert.equal(updated.status, 'success');
+  assert.equal(updated.audioUrl, 'https://example.test/song.wav');
+  assert.equal(await backend.updateMusicTaskRecord('provider-task-1', 'user-b', { status: 'failed' }), null);
+});
+
 type StoredUserRow = {
   id: string;
   type: 'guest' | 'email';
@@ -107,6 +143,7 @@ type StoredSessionRow = {
 function createSqlStub(state: {
   users: Map<string, StoredUserRow>;
   sessions: Map<string, StoredSessionRow>;
+  musicTasks?: Map<string, MusicTask>;
 }) {
   return (async (strings: TemplateStringsArray, ...values: unknown[]) => {
     const query = strings.join('?').replace(/\s+/g, ' ').trim();
@@ -155,6 +192,62 @@ function createSqlStub(state: {
       return [];
     }
 
+    if (query.startsWith('insert into music_tasks')) {
+      const task: MusicTask = {
+        id: String(values[0]),
+        userId: String(values[1]),
+        providerTaskId: String(values[2]),
+        track: String(values[3]) as MusicTask['track'],
+        requestPayload: JSON.parse(String(values[4])),
+        status: 'pending',
+        progress: 0,
+        audioUrl: null,
+        lyrics: null,
+        failureCode: null,
+        failureMessage: null,
+        createdAt: String(values[5]),
+        updatedAt: String(values[5]),
+      };
+      state.musicTasks?.set(`${task.providerTaskId}:${task.userId}`, task);
+      return [toMusicTaskRow(task)];
+    }
+
+    if (query.startsWith('select id, user_id, provider_task_id')) {
+      const task = state.musicTasks?.get(`${String(values[0])}:${String(values[1])}`);
+      return task ? [toMusicTaskRow(task)] : [];
+    }
+
+    if (query.startsWith('update music_tasks set')) {
+      const task = state.musicTasks?.get(`${String(values[7])}:${String(values[8])}`);
+      if (!task) return [];
+      task.status = (values[0] ?? task.status) as MusicTask['status'];
+      task.progress = Number(values[1] ?? task.progress);
+      task.audioUrl = values[2] === null ? task.audioUrl : String(values[2]);
+      task.lyrics = values[3] === null ? task.lyrics : String(values[3]);
+      task.failureCode = values[4] === null ? null : Number(values[4]);
+      task.failureMessage = values[5] === null ? null : String(values[5]);
+      task.updatedAt = String(values[6]);
+      return [toMusicTaskRow(task)];
+    }
+
     throw new Error(`Unexpected query: ${query}`);
   }) as never;
+}
+
+function toMusicTaskRow(task: MusicTask) {
+  return {
+    id: task.id,
+    user_id: task.userId,
+    provider_task_id: task.providerTaskId,
+    track: task.track,
+    request_payload: JSON.stringify(task.requestPayload),
+    status: task.status,
+    progress: task.progress,
+    audio_url: task.audioUrl,
+    lyrics: task.lyrics,
+    failure_code: task.failureCode,
+    failure_message: task.failureMessage,
+    created_at: task.createdAt,
+    updated_at: task.updatedAt,
+  };
 }
