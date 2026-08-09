@@ -8,8 +8,8 @@ export function getD1Database(explicit?: D1Database): D1Database {
   }
 
   try {
-    const database = (getCloudflareContext().env as { DB?: D1Database }).DB;
-    if (database !== undefined) {
+    const database = (getCloudflareContext().env as { DB?: D1Database | null }).DB;
+    if (database !== undefined && database !== null) {
       return database;
     }
   } catch {

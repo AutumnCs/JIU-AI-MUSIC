@@ -44,6 +44,17 @@ test('getD1Database throws a stable error when DB is absent', (t) => {
   });
 });
 
+test('getD1Database throws a stable error when DB is null', (t) => {
+  const originalContext = getCloudflareContext();
+  t.after(() => setCloudflareContext(originalContext));
+
+  setCloudflareContext({ env: { DB: null } });
+
+  assert.throws(() => getD1Database(), {
+    message: 'D1 binding "DB" is unavailable',
+  });
+});
+
 test('getD1Database throws a stable error when OpenNext context is unavailable', (t) => {
   const originalContext = getCloudflareContext();
   clearCloudflareContext();
