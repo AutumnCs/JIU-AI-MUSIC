@@ -1,4 +1,4 @@
-import type { CommunityPost } from '../db.ts';
+import type { CommunityComment, CommunityPost, CommunityRepository } from '../db.ts';
 import { fromSqlBool, nowIso } from '../d1.ts';
 
 type CommunityPostRow = {
@@ -28,9 +28,33 @@ type CommunityPostMusicRow = {
   lyrics: string | null;
 };
 
+type CommunityCommentRow = {
+  id: string;
+  post_id: string;
+  user_id: string;
+  display_name: string | null;
+  parent_id: string | null;
+  reply_to_user_id: string | null;
+  body: string;
+  like_count: number;
+  liked: number | boolean | null;
+  created_at: string;
+};
+
+type CommunityNotificationRow = {
+  id: string;
+  type: string;
+  actor_user_id: string;
+  actor_name: string | null;
+  post_id: string | null;
+  comment_id: string | null;
+  is_read: number | boolean | null;
+  created_at: string;
+};
+
 type CommunityDatabase = Pick<D1Database, 'batch' | 'prepare'>;
 
-export function createCommunityPostRepository(db: CommunityDatabase) {
+export function createCommunityPostRepository(db: CommunityDatabase): CommunityRepository {
   async function findPost(postId: string, userId: string): Promise<CommunityPost | null> {
     const row = await db.prepare(
       `select p.id, p.user_id, p.body, p.moderation_status, p.like_count,
@@ -158,8 +182,307 @@ export function createCommunityPostRepository(db: CommunityDatabase) {
       };
     },
 
+    async togglePostInteraction(
+      postId: string,
+      userId: string,
+      kind: 'like' | 'favorite',
+    ): Promise<{ active: boolean; count: number }> {
+      const post = await db.prepare(
+        'select user_id from community_posts where id = ? and status = ? limit 1',
+      ).bind(postId, 'published').first<{ user_id: string }>();
+      if (!post) throw new Error('post_not_found');
+
+      const joinTable = kind === 'like'
+        ? 'community_post_likes'
+        : 'community_post_favorites';
+      const counterColumn = kind === 'like' ? 'like_count' : 'favorite_count';
+      const existing = await db.prepare(
+        `select 1 from ${joinTable} where post_id = ? and user_id = ? limit 1`,
+      ).bind(postId, userId).first();
+      const active = existing === null;
+      const now = nowIso();
+      const statements: D1PreparedStatement[] = [active
+        ? db.prepare(
+          `insert into ${joinTable} (post_id, user_id, created_at) values (?, ?, ?)`,
+        ).bind(postId, userId, now)
+        : db.prepare(
+          `delete from ${joinTable} where post_id = ? and user_id = ?`,
+        ).bind(postId, userId),
+        db.prepare(
+          `update community_posts
+            set ${counterColumn} = (
+              select count(*) from ${joinTable} where post_id = ?
+            ), updated_at = ?
+            where id = ?`,
+        ).bind(postId, now, postId),
+      ];
+
+      if (active && post.user_id !== userId) {
+        statements.push(notificationStatement(db, {
+          recipientUserId: post.user_id,
+          actorUserId: userId,
+          type: kind === 'like' ? 'post_like' : 'post_favorite',
+          postId,
+          commentId: null,
+          createdAt: now,
+        }));
+      }
+      statements.push(db.prepare(
+        `select ${counterColumn} as count from community_posts where id = ?`,
+      ).bind(postId));
+
+      const results = await db.batch(statements);
+      const countRow = results.at(-1)?.results[0] as { count?: number } | undefined;
+      return { active, count: Number(countRow?.count ?? 0) };
+    },
+
+    async listComments(postId: string, userId: string): Promise<CommunityComment[]> {
+      const result = await db.prepare(
+        `select c.id, c.post_id, c.user_id, u.display_name, c.parent_id,
+          c.reply_to_user_id, c.body, c.like_count, c.created_at,
+          exists(select 1 from community_comment_likes l
+            where l.comment_id = c.id and l.user_id = ?) as liked
+          from community_comments c
+          join users u on u.id = c.user_id
+          where c.post_id = ? and c.status = ? and c.moderation_status = ?
+          order by c.created_at asc, c.rowid asc`,
+      ).bind(userId, postId, 'published', 'approved').all<CommunityCommentRow>();
+      return result.results.map(toCommunityComment);
+    },
+
+    async createComment(input: {
+      postId: string;
+      userId: string;
+      body: string;
+      parentId: string | null;
+      replyToUserId: string | null;
+    }): Promise<CommunityComment> {
+      const post = await db.prepare(
+        'select user_id from community_posts where id = ? and status = ? limit 1',
+      ).bind(input.postId, 'published').first<{ user_id: string }>();
+      if (!post) throw new Error('post_not_found');
+
+      if (input.parentId) {
+        const parent = await db.prepare(
+          `select 1 from community_comments
+            where id = ? and post_id = ? and status = ? limit 1`,
+        ).bind(input.parentId, input.postId, 'published').first();
+        if (!parent) throw new Error('comment_parent_not_found');
+      }
+
+      const commentId = crypto.randomUUID();
+      const now = nowIso();
+      const statements: D1PreparedStatement[] = [
+        db.prepare(
+          `insert into community_comments (
+            id, post_id, user_id, parent_id, reply_to_user_id, body,
+            moderation_status, status, created_at, updated_at
+          ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ).bind(
+          commentId,
+          input.postId,
+          input.userId,
+          input.parentId,
+          input.replyToUserId,
+          input.body.trim(),
+          'approved',
+          'published',
+          now,
+          now,
+        ),
+        db.prepare(
+          `update community_posts
+            set comment_count = (
+              select count(*) from community_comments
+              where post_id = ? and status = ?
+            ), updated_at = ?
+            where id = ?`,
+        ).bind(input.postId, 'published', now, input.postId),
+      ];
+      if (post.user_id !== input.userId) {
+        statements.push(notificationStatement(db, {
+          recipientUserId: post.user_id,
+          actorUserId: input.userId,
+          type: input.parentId ? 'comment_reply' : 'comment',
+          postId: input.postId,
+          commentId,
+          createdAt: now,
+        }));
+      }
+      await db.batch(statements);
+
+      const comment = await findComment(db, commentId, input.userId);
+      if (!comment) throw new Error('comment_not_found');
+      return comment;
+    },
+
+    async toggleCommentLike(
+      commentId: string,
+      userId: string,
+    ): Promise<{ active: boolean; count: number }> {
+      const comment = await db.prepare(
+        `select post_id, user_id from community_comments
+          where id = ? and status = ? limit 1`,
+      ).bind(commentId, 'published').first<{ post_id: string; user_id: string }>();
+      if (!comment) throw new Error('comment_not_found');
+
+      const existing = await db.prepare(
+        `select 1 from community_comment_likes
+          where comment_id = ? and user_id = ? limit 1`,
+      ).bind(commentId, userId).first();
+      const active = existing === null;
+      const now = nowIso();
+      const statements: D1PreparedStatement[] = [active
+        ? db.prepare(
+          `insert into community_comment_likes (comment_id, user_id, created_at)
+            values (?, ?, ?)`,
+        ).bind(commentId, userId, now)
+        : db.prepare(
+          'delete from community_comment_likes where comment_id = ? and user_id = ?',
+        ).bind(commentId, userId),
+        db.prepare(
+          `update community_comments
+            set like_count = (
+              select count(*) from community_comment_likes where comment_id = ?
+            ), updated_at = ?
+            where id = ?`,
+        ).bind(commentId, now, commentId),
+      ];
+      if (active && comment.user_id !== userId) {
+        statements.push(notificationStatement(db, {
+          recipientUserId: comment.user_id,
+          actorUserId: userId,
+          type: 'comment_like',
+          postId: comment.post_id,
+          commentId,
+          createdAt: now,
+        }));
+      }
+      statements.push(db.prepare(
+        'select like_count as count from community_comments where id = ?',
+      ).bind(commentId));
+
+      const results = await db.batch(statements);
+      const countRow = results.at(-1)?.results[0] as { count?: number } | undefined;
+      return { active, count: Number(countRow?.count ?? 0) };
+    },
+
+    async deleteComment(commentId: string, userId: string): Promise<boolean> {
+      const comment = await db.prepare(
+        `select c.post_id, c.user_id, p.user_id as post_user_id
+          from community_comments c
+          join community_posts p on p.id = c.post_id
+          where c.id = ? and c.status = ?
+          limit 1`,
+      ).bind(commentId, 'published').first<{
+        post_id: string;
+        user_id: string;
+        post_user_id: string;
+      }>();
+      if (!comment || (comment.user_id !== userId && comment.post_user_id !== userId)) {
+        return false;
+      }
+
+      const now = nowIso();
+      await db.batch([
+        db.prepare(
+          `update community_comments set status = ?, updated_at = ?
+            where id = ? and status = ?`,
+        ).bind('deleted', now, commentId, 'published'),
+        db.prepare(
+          `update community_posts
+            set comment_count = (
+              select count(*) from community_comments
+              where post_id = ? and status = ?
+            ), updated_at = ?
+            where id = ?`,
+        ).bind(comment.post_id, 'published', now, comment.post_id),
+      ]);
+      return true;
+    },
+
+    async listNotifications(userId: string) {
+      const result = await db.prepare(
+        `select n.id, n.type, n.actor_user_id, u.display_name as actor_name,
+          n.post_id, n.comment_id, n.is_read, n.created_at
+          from community_notifications n
+          join users u on u.id = n.actor_user_id
+          where n.recipient_user_id = ?
+          order by n.created_at desc, n.rowid desc
+          limit ?`,
+      ).bind(userId, 50).all<CommunityNotificationRow>();
+      return result.results.map((row) => ({
+        id: row.id,
+        type: row.type,
+        actorId: row.actor_user_id,
+        actorName: row.actor_name ?? '\u7528\u6237',
+        postId: row.post_id,
+        commentId: row.comment_id,
+        isRead: fromSqlBool(row.is_read),
+        createdAt: row.created_at,
+      }));
+    },
+
     findPost,
   };
+}
+
+async function findComment(
+  db: CommunityDatabase,
+  commentId: string,
+  userId: string,
+): Promise<CommunityComment | null> {
+  const row = await db.prepare(
+    `select c.id, c.post_id, c.user_id, u.display_name, c.parent_id,
+      c.reply_to_user_id, c.body, c.like_count, c.created_at,
+      exists(select 1 from community_comment_likes l
+        where l.comment_id = c.id and l.user_id = ?) as liked
+      from community_comments c
+      join users u on u.id = c.user_id
+      where c.id = ? and c.status = ? and c.moderation_status = ?
+      limit 1`,
+  ).bind(userId, commentId, 'published', 'approved').first<CommunityCommentRow>();
+  return row ? toCommunityComment(row) : null;
+}
+
+function toCommunityComment(row: CommunityCommentRow): CommunityComment {
+  return {
+    id: row.id,
+    postId: row.post_id,
+    userId: row.user_id,
+    author: { id: row.user_id, displayName: row.display_name ?? '\u5c0f\u9e1f\u7528\u6237' },
+    parentId: row.parent_id,
+    replyToUserId: row.reply_to_user_id,
+    body: row.body,
+    likeCount: Number(row.like_count),
+    liked: fromSqlBool(row.liked),
+    createdAt: row.created_at,
+  };
+}
+
+type NotificationInput = {
+  recipientUserId: string;
+  actorUserId: string;
+  type: 'post_like' | 'post_favorite' | 'comment' | 'comment_reply' | 'comment_like';
+  postId: string | null;
+  commentId: string | null;
+  createdAt: string;
+};
+
+function notificationStatement(db: CommunityDatabase, input: NotificationInput): D1PreparedStatement {
+  return db.prepare(
+    `insert into community_notifications (
+      id, recipient_user_id, actor_user_id, type, post_id, comment_id, created_at
+    ) values (?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(
+    crypto.randomUUID(),
+    input.recipientUserId,
+    input.actorUserId,
+    input.type,
+    input.postId,
+    input.commentId,
+    input.createdAt,
+  );
 }
 
 type LatestCursor = ['latest', string, string];

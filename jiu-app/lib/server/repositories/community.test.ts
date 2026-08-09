@@ -10,6 +10,9 @@ if ('__vitest_worker__' in globalThis) {
   describe('community post D1 repository', () => {
     beforeEach(async () => {
       await env.DB.batch([
+        env.DB.prepare('delete from community_notifications'),
+        env.DB.prepare('delete from community_comment_likes'),
+        env.DB.prepare('delete from community_comments'),
         env.DB.prepare('delete from community_post_likes'),
         env.DB.prepare('delete from community_post_favorites'),
         env.DB.prepare('delete from community_post_media'),
@@ -280,6 +283,356 @@ if ('__vitest_worker__' in globalThis) {
         await expect(repository.listPosts({ userId: viewer.id, ...input }))
           .rejects.toThrow('invalid_cursor');
       }
+    });
+
+    it.each(['like', 'favorite'] as const)(
+      'toggles a post %s from join-table truth and repairs stale counters',
+      async (kind) => {
+        const authRepository = createAuthRepository(env.DB);
+        const repository = createCommunityPostRepository(env.DB);
+        const owner = await authRepository.createGuestUserRecord();
+        const actor = await authRepository.createGuestUserRecord();
+        const post = await repository.createPost({
+          userId: owner.id, body: `${kind} target`, media: [], providerTaskId: null,
+        });
+        const counterColumn = kind === 'like' ? 'like_count' : 'favorite_count';
+        await env.DB.prepare(
+          `update community_posts set ${counterColumn} = ? where id = ?`,
+        ).bind(99, post.id).run();
+
+        await expect(repository.togglePostInteraction(post.id, actor.id, kind))
+          .resolves.toEqual({ active: true, count: 1 });
+        await expect(repository.togglePostInteraction(post.id, actor.id, kind))
+          .resolves.toEqual({ active: false, count: 0 });
+
+        const table = kind === 'like' ? 'community_post_likes' : 'community_post_favorites';
+        const joins = await env.DB.prepare(
+          `select count(*) as count from ${table} where post_id = ? and user_id = ?`,
+        ).bind(post.id, actor.id).first<{ count: number }>();
+        const stored = await env.DB.prepare(
+          `select ${counterColumn} as count from community_posts where id = ?`,
+        ).bind(post.id).first<{ count: number }>();
+        expect(joins?.count).toBe(0);
+        expect(stored?.count).toBe(0);
+      },
+    );
+
+    it('creates one notification on activation and none on deactivation', async () => {
+      const authRepository = createAuthRepository(env.DB);
+      const repository = createCommunityPostRepository(env.DB);
+      const owner = await authRepository.createGuestUserRecord();
+      const actor = await authRepository.createGuestUserRecord();
+      const post = await repository.createPost({
+        userId: owner.id, body: 'notify owner', media: [], providerTaskId: null,
+      });
+
+      await repository.togglePostInteraction(post.id, actor.id, 'like');
+      await repository.togglePostInteraction(post.id, actor.id, 'like');
+
+      const notifications = await env.DB.prepare(
+        `select recipient_user_id, actor_user_id, type, post_id, comment_id
+          from community_notifications`,
+      ).all();
+      expect(notifications.results).toEqual([{
+        recipient_user_id: owner.id,
+        actor_user_id: actor.id,
+        type: 'post_like',
+        post_id: post.id,
+        comment_id: null,
+      }]);
+    });
+
+    it('does not notify an owner about their own post interaction', async () => {
+      const authRepository = createAuthRepository(env.DB);
+      const repository = createCommunityPostRepository(env.DB);
+      const owner = await authRepository.createGuestUserRecord();
+      const post = await repository.createPost({
+        userId: owner.id, body: 'self favorite', media: [], providerTaskId: null,
+      });
+
+      await expect(repository.togglePostInteraction(post.id, owner.id, 'favorite'))
+        .resolves.toEqual({ active: true, count: 1 });
+      const notifications = await env.DB.prepare(
+        'select count(*) as count from community_notifications',
+      ).first<{ count: number }>();
+      expect(notifications?.count).toBe(0);
+    });
+
+    it('rejects interactions with a missing or unpublished post', async () => {
+      const authRepository = createAuthRepository(env.DB);
+      const repository = createCommunityPostRepository(env.DB);
+      const owner = await authRepository.createGuestUserRecord();
+      const post = await repository.createPost({
+        userId: owner.id, body: 'deleted target', media: [], providerTaskId: null,
+      });
+      await env.DB.prepare('update community_posts set status = ? where id = ?')
+        .bind('deleted', post.id).run();
+
+      await expect(repository.togglePostInteraction('missing-post', owner.id, 'like'))
+        .rejects.toThrow('post_not_found');
+      await expect(repository.togglePostInteraction(post.id, owner.id, 'favorite'))
+        .rejects.toThrow('post_not_found');
+    });
+
+    it('creates and lists a nested reply with mapped reply fields and a recomputed counter', async () => {
+      const authRepository = createAuthRepository(env.DB);
+      const repository = createCommunityPostRepository(env.DB);
+      const owner = await authRepository.createGuestUserRecord();
+      const parentAuthor = await authRepository.createGuestUserRecord();
+      const replyAuthor = await authRepository.createGuestUserRecord();
+      await setDisplayName(replyAuthor.id, 'Reply Author');
+      const post = await repository.createPost({
+        userId: owner.id, body: 'comment target', media: [], providerTaskId: null,
+      });
+      const parent = await repository.createComment({
+        postId: post.id,
+        userId: parentAuthor.id,
+        body: '  parent comment  ',
+        parentId: null,
+        replyToUserId: null,
+      });
+      await env.DB.prepare('update community_posts set comment_count = ? where id = ?')
+        .bind(77, post.id).run();
+
+      const reply = await repository.createComment({
+        postId: post.id,
+        userId: replyAuthor.id,
+        body: '  nested reply  ',
+        parentId: parent.id,
+        replyToUserId: parentAuthor.id,
+      });
+
+      expect(reply).toEqual({
+        id: reply.id,
+        postId: post.id,
+        userId: replyAuthor.id,
+        author: { id: replyAuthor.id, displayName: 'Reply Author' },
+        parentId: parent.id,
+        replyToUserId: parentAuthor.id,
+        body: 'nested reply',
+        likeCount: 0,
+        liked: false,
+        createdAt: reply.createdAt,
+      });
+      const comments = await repository.listComments(post.id, replyAuthor.id);
+      expect(comments.map((comment) => comment.id)).toEqual([parent.id, reply.id]);
+      expect(comments[1]).toEqual(reply);
+      const storedPost = await env.DB.prepare(
+        'select comment_count from community_posts where id = ?',
+      ).bind(post.id).first<{ comment_count: number }>();
+      expect(storedPost?.comment_count).toBe(2);
+
+      const notifications = await repository.listNotifications(owner.id);
+      expect(notifications.map((notification) => ({
+        type: notification.type,
+        actorId: notification.actorId,
+        postId: notification.postId,
+        commentId: notification.commentId,
+      }))).toEqual([
+        { type: 'comment_reply', actorId: replyAuthor.id, postId: post.id, commentId: reply.id },
+        { type: 'comment', actorId: parentAuthor.id, postId: post.id, commentId: parent.id },
+      ]);
+    });
+
+    it('rejects a parent from another post or a deleted parent', async () => {
+      const authRepository = createAuthRepository(env.DB);
+      const repository = createCommunityPostRepository(env.DB);
+      const owner = await authRepository.createGuestUserRecord();
+      const actor = await authRepository.createGuestUserRecord();
+      const firstPost = await repository.createPost({
+        userId: owner.id, body: 'first post', media: [], providerTaskId: null,
+      });
+      const secondPost = await repository.createPost({
+        userId: owner.id, body: 'second post', media: [], providerTaskId: null,
+      });
+      const parent = await repository.createComment({
+        postId: firstPost.id,
+        userId: actor.id,
+        body: 'first parent',
+        parentId: null,
+        replyToUserId: null,
+      });
+
+      await expect(repository.createComment({
+        postId: secondPost.id,
+        userId: actor.id,
+        body: 'cross post reply',
+        parentId: parent.id,
+        replyToUserId: actor.id,
+      })).rejects.toThrow('comment_parent_not_found');
+      await env.DB.prepare('update community_comments set status = ? where id = ?')
+        .bind('deleted', parent.id).run();
+      await expect(repository.createComment({
+        postId: firstPost.id,
+        userId: actor.id,
+        body: 'deleted parent reply',
+        parentId: parent.id,
+        replyToUserId: actor.id,
+      })).rejects.toThrow('comment_parent_not_found');
+
+      const secondCount = await env.DB.prepare(
+        'select comment_count from community_posts where id = ?',
+      ).bind(secondPost.id).first<{ comment_count: number }>();
+      expect(secondCount?.comment_count).toBe(0);
+    });
+
+    it('toggles a comment like from join truth and notifies only a different author on activation', async () => {
+      const authRepository = createAuthRepository(env.DB);
+      const repository = createCommunityPostRepository(env.DB);
+      const postOwner = await authRepository.createGuestUserRecord();
+      const commentAuthor = await authRepository.createGuestUserRecord();
+      const actor = await authRepository.createGuestUserRecord();
+      const post = await repository.createPost({
+        userId: postOwner.id, body: 'like comment', media: [], providerTaskId: null,
+      });
+      const comment = await repository.createComment({
+        postId: post.id,
+        userId: commentAuthor.id,
+        body: 'like me',
+        parentId: null,
+        replyToUserId: null,
+      });
+      await env.DB.prepare('delete from community_notifications').run();
+      await env.DB.prepare('update community_comments set like_count = ? where id = ?')
+        .bind(44, comment.id).run();
+
+      await expect(repository.toggleCommentLike(comment.id, actor.id))
+        .resolves.toEqual({ active: true, count: 1 });
+      await expect(repository.toggleCommentLike(comment.id, actor.id))
+        .resolves.toEqual({ active: false, count: 0 });
+      await expect(repository.toggleCommentLike(comment.id, commentAuthor.id))
+        .resolves.toEqual({ active: true, count: 1 });
+
+      const stored = await env.DB.prepare(
+        `select c.like_count,
+          (select count(*) from community_comment_likes where comment_id = c.id) as join_count
+          from community_comments c where c.id = ?`,
+      ).bind(comment.id).first<{ like_count: number; join_count: number }>();
+      expect(stored).toEqual({ like_count: 1, join_count: 1 });
+      const notifications = await repository.listNotifications(commentAuthor.id);
+      expect(notifications.map((notification) => ({
+        type: notification.type,
+        actorId: notification.actorId,
+        commentId: notification.commentId,
+      }))).toEqual([{
+        type: 'comment_like', actorId: actor.id, commentId: comment.id,
+      }]);
+    });
+
+    it('rejects a comment like for a missing or deleted comment', async () => {
+      const authRepository = createAuthRepository(env.DB);
+      const repository = createCommunityPostRepository(env.DB);
+      const owner = await authRepository.createGuestUserRecord();
+      const post = await repository.createPost({
+        userId: owner.id, body: 'deleted comment like', media: [], providerTaskId: null,
+      });
+      const comment = await repository.createComment({
+        postId: post.id,
+        userId: owner.id,
+        body: 'soon deleted',
+        parentId: null,
+        replyToUserId: null,
+      });
+      await env.DB.prepare('update community_comments set status = ? where id = ?')
+        .bind('deleted', comment.id).run();
+
+      await expect(repository.toggleCommentLike('missing-comment', owner.id))
+        .rejects.toThrow('comment_not_found');
+      await expect(repository.toggleCommentLike(comment.id, owner.id))
+        .rejects.toThrow('comment_not_found');
+    });
+
+    it('soft deletes for the comment or post author, denies strangers, and preserves children', async () => {
+      const authRepository = createAuthRepository(env.DB);
+      const repository = createCommunityPostRepository(env.DB);
+      const postOwner = await authRepository.createGuestUserRecord();
+      const parentAuthor = await authRepository.createGuestUserRecord();
+      const childAuthor = await authRepository.createGuestUserRecord();
+      const stranger = await authRepository.createGuestUserRecord();
+      const post = await repository.createPost({
+        userId: postOwner.id, body: 'delete comments', media: [], providerTaskId: null,
+      });
+      const parent = await repository.createComment({
+        postId: post.id,
+        userId: parentAuthor.id,
+        body: 'parent',
+        parentId: null,
+        replyToUserId: null,
+      });
+      const child = await repository.createComment({
+        postId: post.id,
+        userId: childAuthor.id,
+        body: 'child',
+        parentId: parent.id,
+        replyToUserId: parentAuthor.id,
+      });
+      const removableByPostOwner = await repository.createComment({
+        postId: post.id,
+        userId: childAuthor.id,
+        body: 'post owner may remove',
+        parentId: null,
+        replyToUserId: null,
+      });
+      await env.DB.prepare('update community_posts set comment_count = ? where id = ?')
+        .bind(91, post.id).run();
+
+      await expect(repository.deleteComment(parent.id, stranger.id)).resolves.toBe(false);
+      await expect(repository.deleteComment('missing-comment', postOwner.id)).resolves.toBe(false);
+      await expect(repository.deleteComment(parent.id, parentAuthor.id)).resolves.toBe(true);
+      await expect(repository.deleteComment(parent.id, parentAuthor.id)).resolves.toBe(false);
+      await expect(repository.deleteComment(removableByPostOwner.id, postOwner.id)).resolves.toBe(true);
+
+      const rows = await env.DB.prepare(
+        'select id, parent_id, status from community_comments where post_id = ? order by created_at asc',
+      ).bind(post.id).all<{ id: string; parent_id: string | null; status: string }>();
+      expect(rows.results).toEqual([
+        { id: parent.id, parent_id: null, status: 'deleted' },
+        { id: child.id, parent_id: parent.id, status: 'published' },
+        { id: removableByPostOwner.id, parent_id: null, status: 'deleted' },
+      ]);
+      const visible = await repository.listComments(post.id, stranger.id);
+      expect(visible.map((comment) => comment.id)).toEqual([child.id]);
+      const storedPost = await env.DB.prepare(
+        'select comment_count from community_posts where id = ?',
+      ).bind(post.id).first<{ comment_count: number }>();
+      expect(storedPost?.comment_count).toBe(1);
+    });
+
+    it('lists the newest 50 notifications with domain booleans and actor fallback', async () => {
+      const authRepository = createAuthRepository(env.DB);
+      const repository = createCommunityPostRepository(env.DB);
+      const recipient = await authRepository.createGuestUserRecord();
+      const actor = await authRepository.createGuestUserRecord();
+      const statements = Array.from({ length: 51 }, (_, index) => env.DB.prepare(
+        `insert into community_notifications (
+          id, recipient_user_id, actor_user_id, type, post_id, comment_id, is_read, created_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).bind(
+        `notification-${index}`,
+        recipient.id,
+        actor.id,
+        'post_like',
+        null,
+        null,
+        index === 50 ? 1 : 0,
+        new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
+      ));
+      await env.DB.batch(statements);
+
+      const notifications = await repository.listNotifications(recipient.id);
+
+      expect(notifications).toHaveLength(50);
+      expect(notifications[0]).toEqual({
+        id: 'notification-50',
+        type: 'post_like',
+        actorId: actor.id,
+        actorName: '\u7528\u6237',
+        postId: null,
+        commentId: null,
+        isRead: true,
+        createdAt: '2026-01-01T00:00:50.000Z',
+      });
+      expect(notifications.at(-1)?.id).toBe('notification-1');
     });
   });
 

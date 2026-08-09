@@ -4,9 +4,25 @@ import test from 'node:test';
 import {
   createGuestUserRecord,
   createPostgresBackend,
+  getCommunityRepository,
   type MusicTask,
   resolveDatabaseUrl,
 } from './db.ts';
+
+test('getCommunityRepository requires D1 without consulting Postgres configuration', () => {
+  const previousDatabaseUrl = process.env.DATABASE_URL;
+  delete process.env.DATABASE_URL;
+
+  try {
+    assert.throws(getCommunityRepository, /D1 binding "DB" is unavailable/);
+  } finally {
+    if (previousDatabaseUrl === undefined) {
+      delete process.env.DATABASE_URL;
+    } else {
+      process.env.DATABASE_URL = previousDatabaseUrl;
+    }
+  }
+});
 
 test('createGuestUserRecord requires the D1 binding', async () => {
   const previousDatabaseUrl = process.env.DATABASE_URL;
