@@ -7,6 +7,7 @@ import type { AuthSession, AuthUser } from '@/lib/auth/types';
 
 import { getD1Database } from './d1.ts';
 import { createAuthRepository } from './repositories/auth.ts';
+import { createCommunityPostRepository } from './repositories/community.ts';
 import { createMusicTaskRepository } from './repositories/music-tasks.ts';
 
 type StoredUser = AuthUser & {
@@ -150,7 +151,14 @@ export function validateDatabaseConfig(): void {
 }
 
 export function getCommunityRepository(): CommunityRepository {
-  return createCommunityRepository(getPostgresClient(resolveDatabaseUrl()));
+  const postgresRepository = createCommunityRepository(getPostgresClient(resolveDatabaseUrl()));
+  const postRepository = createCommunityPostRepository(getD1Database());
+  return {
+    ...postgresRepository,
+    createPost: postRepository.createPost,
+    listPosts: postRepository.listPosts,
+    findPost: postRepository.findPost,
+  };
 }
 
 export async function createSessionRecord(
