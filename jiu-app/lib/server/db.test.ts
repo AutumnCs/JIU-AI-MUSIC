@@ -8,12 +8,12 @@ import {
   resolveDatabaseUrl,
 } from './db.ts';
 
-test('createGuestUserRecord requires a database connection', async () => {
+test('createGuestUserRecord requires the D1 binding', async () => {
   const previousDatabaseUrl = process.env.DATABASE_URL;
   delete process.env.DATABASE_URL;
 
   try {
-    await assert.rejects(createGuestUserRecord(), /DATABASE_URL/);
+    await assert.rejects(createGuestUserRecord(), /D1 binding "DB" is unavailable/);
   } finally {
     if (previousDatabaseUrl === undefined) {
       delete process.env.DATABASE_URL;

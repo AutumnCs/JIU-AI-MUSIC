@@ -5,6 +5,10 @@ import postgres from 'postgres';
 
 import type { AuthSession, AuthUser } from '@/lib/auth/types';
 
+import { getD1Database } from './d1.ts';
+import { createAuthRepository } from './repositories/auth.ts';
+import { createMusicTaskRepository } from './repositories/music-tasks.ts';
+
 type StoredUser = AuthUser & {
   createdAt: string;
   updatedAt: string;
@@ -138,11 +142,11 @@ let postgresClient: ReturnType<typeof postgres> | null = null;
 
 // This adapter stays tiny so the platform-specific runtime binding can change later.
 export async function createGuestUserRecord(): Promise<AuthUser> {
-  return getBackend().createGuestUserRecord();
+  return createAuthRepository(getD1Database()).createGuestUserRecord();
 }
 
 export function validateDatabaseConfig(): void {
-  resolveDatabaseUrl();
+  getD1Database();
 }
 
 export function getCommunityRepository(): CommunityRepository {
@@ -153,19 +157,19 @@ export async function createSessionRecord(
   userId: string,
   expiresAt: string,
 ): Promise<AuthSession> {
-  return getBackend().createSessionRecord(userId, expiresAt);
+  return createAuthRepository(getD1Database()).createSessionRecord(userId, expiresAt);
 }
 
 export async function findSessionRecord(id: string): Promise<StoredSession | null> {
-  return getBackend().findSessionRecord(id);
+  return createAuthRepository(getD1Database()).findSessionRecord(id);
 }
 
 export async function findUserRecord(id: string): Promise<AuthUser | null> {
-  return getBackend().findUserRecord(id);
+  return createAuthRepository(getD1Database()).findUserRecord(id);
 }
 
 export async function revokeSessionRecord(id: string): Promise<void> {
-  await getBackend().revokeSessionRecord(id);
+  await createAuthRepository(getD1Database()).revokeSessionRecord(id);
 }
 
 export async function createMusicTaskRecord(input: {
@@ -174,11 +178,11 @@ export async function createMusicTaskRecord(input: {
   track: MusicTrack;
   requestPayload: Record<string, unknown>;
 }): Promise<MusicTask> {
-  return getBackend().createMusicTaskRecord(input);
+  return createMusicTaskRepository(getD1Database()).createMusicTaskRecord(input);
 }
 
 export async function findMusicTaskRecord(providerTaskId: string, userId: string): Promise<MusicTask | null> {
-  return getBackend().findMusicTaskRecord(providerTaskId, userId);
+  return createMusicTaskRepository(getD1Database()).findMusicTaskRecord(providerTaskId, userId);
 }
 
 export async function updateMusicTaskRecord(
@@ -186,11 +190,7 @@ export async function updateMusicTaskRecord(
   userId: string,
   patch: MusicTaskPatch,
 ): Promise<MusicTask | null> {
-  return getBackend().updateMusicTaskRecord(providerTaskId, userId, patch);
-}
-
-function getBackend(): Backend {
-  return createPostgresBackend(getPostgresClient(resolveDatabaseUrl()));
+  return createMusicTaskRepository(getD1Database()).updateMusicTaskRecord(providerTaskId, userId, patch);
 }
 
 export function createPostgresBackend(sql: SqlClient): Backend {
