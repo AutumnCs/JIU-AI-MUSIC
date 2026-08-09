@@ -307,13 +307,53 @@ if ('__vitest_worker__' in globalThis) {
 
         const table = kind === 'like' ? 'community_post_likes' : 'community_post_favorites';
         const joins = await env.DB.prepare(
-          `select count(*) as count from ${table} where post_id = ? and user_id = ?`,
+          `select count(*) as count from ${table} where post_id = ? and user_id = ? and active = 1`,
         ).bind(post.id, actor.id).first<{ count: number }>();
         const stored = await env.DB.prepare(
           `select ${counterColumn} as count from community_posts where id = ?`,
         ).bind(post.id).first<{ count: number }>();
         expect(joins?.count).toBe(0);
         expect(stored?.count).toBe(0);
+      },
+    );
+
+    it.each(['like', 'favorite'] as const)(
+      'atomically serializes concurrent post %s transitions',
+      async (kind) => {
+        const authRepository = createAuthRepository(env.DB);
+        const setupRepository = createCommunityPostRepository(env.DB);
+        const owner = await authRepository.createGuestUserRecord();
+        const actor = await authRepository.createGuestUserRecord();
+        const post = await setupRepository.createPost({
+          userId: owner.id, body: `concurrent ${kind}`, media: [], providerTaskId: null,
+        });
+        const repository = createCommunityPostRepository(concurrentBatchDatabase(env.DB, 2));
+
+        const results = await Promise.all([
+          repository.togglePostInteraction(post.id, actor.id, kind),
+          repository.togglePostInteraction(post.id, actor.id, kind),
+        ]);
+
+        expect(results.sort((left, right) => Number(left.active) - Number(right.active))).toEqual([
+          { active: false, count: 0 },
+          { active: true, count: 1 },
+        ]);
+        const table = kind === 'like' ? 'community_post_likes' : 'community_post_favorites';
+        const counterColumn = kind === 'like' ? 'like_count' : 'favorite_count';
+        const truth = await env.DB.prepare(
+          `select
+            (select count(*) from ${table} where post_id = ? and active = 1) as active_count,
+            (select ${counterColumn} from community_posts where id = ?) as stored_count,
+            (select count(*) from community_notifications
+              where post_id = ? and actor_user_id = ? and type = ?) as notification_count`,
+        ).bind(
+          post.id,
+          post.id,
+          post.id,
+          actor.id,
+          kind === 'like' ? 'post_like' : 'post_favorite',
+        ).first<{ active_count: number; stored_count: number; notification_count: number }>();
+        expect(truth).toEqual({ active_count: 0, stored_count: 0, notification_count: 1 });
       },
     );
 
@@ -356,6 +396,37 @@ if ('__vitest_worker__' in globalThis) {
         'select count(*) as count from community_notifications',
       ).first<{ count: number }>();
       expect(notifications?.count).toBe(0);
+    });
+
+    it('does not expose inactive interaction rows as viewer state', async () => {
+      const authRepository = createAuthRepository(env.DB);
+      const repository = createCommunityPostRepository(env.DB);
+      const owner = await authRepository.createGuestUserRecord();
+      const actor = await authRepository.createGuestUserRecord();
+      const post = await repository.createPost({
+        userId: owner.id, body: 'inactive state', media: [], providerTaskId: null,
+      });
+      const comment = await repository.createComment({
+        postId: post.id,
+        userId: owner.id,
+        body: 'inactive comment state',
+        parentId: null,
+        replyToUserId: null,
+      });
+
+      await repository.togglePostInteraction(post.id, actor.id, 'like');
+      await repository.togglePostInteraction(post.id, actor.id, 'like');
+      await repository.toggleCommentLike(comment.id, actor.id);
+      await repository.toggleCommentLike(comment.id, actor.id);
+
+      const [foundPost, listed, comments] = await Promise.all([
+        repository.findPost(post.id, actor.id),
+        repository.listPosts({ userId: actor.id, sort: 'latest' }),
+        repository.listComments(post.id, actor.id),
+      ]);
+      expect(foundPost?.liked).toBe(false);
+      expect(listed.posts.find((item) => item.id === post.id)?.liked).toBe(false);
+      expect(comments).toEqual([expect.objectContaining({ id: comment.id, liked: false })]);
     });
 
     it('rejects interactions with a missing or unpublished post', async () => {
@@ -476,6 +547,135 @@ if ('__vitest_worker__' in globalThis) {
       expect(secondCount?.comment_count).toBe(0);
     });
 
+    it('rejects a reply target that is not the parent author', async () => {
+      const authRepository = createAuthRepository(env.DB);
+      const repository = createCommunityPostRepository(env.DB);
+      const owner = await authRepository.createGuestUserRecord();
+      const parentAuthor = await authRepository.createGuestUserRecord();
+      const wrongTarget = await authRepository.createGuestUserRecord();
+      const replyAuthor = await authRepository.createGuestUserRecord();
+      const post = await repository.createPost({
+        userId: owner.id, body: 'reply target guard', media: [], providerTaskId: null,
+      });
+      const parent = await repository.createComment({
+        postId: post.id,
+        userId: parentAuthor.id,
+        body: 'parent',
+        parentId: null,
+        replyToUserId: null,
+      });
+      await env.DB.prepare('delete from community_notifications').run();
+
+      await expect(repository.createComment({
+        postId: post.id,
+        userId: replyAuthor.id,
+        body: 'wrong target',
+        parentId: parent.id,
+        replyToUserId: wrongTarget.id,
+      })).rejects.toThrow('comment_reply_target_mismatch');
+
+      const state = await env.DB.prepare(
+        `select
+          (select count(*) from community_comments where post_id = ? and status = ?) as comment_count,
+          (select comment_count from community_posts where id = ?) as stored_count,
+          (select count(*) from community_notifications) as notification_count`,
+      ).bind(post.id, 'published', post.id)
+        .first<{ comment_count: number; stored_count: number; notification_count: number }>();
+      expect(state).toEqual({ comment_count: 1, stored_count: 1, notification_count: 0 });
+    });
+
+    it.each(['deleted', 'cross-post'] as const)(
+      'guards comment insertion when the parent becomes %s before the write',
+      async (parentChange) => {
+        const authRepository = createAuthRepository(env.DB);
+        const setupRepository = createCommunityPostRepository(env.DB);
+        const owner = await authRepository.createGuestUserRecord();
+        const parentAuthor = await authRepository.createGuestUserRecord();
+        const replyAuthor = await authRepository.createGuestUserRecord();
+        const post = await setupRepository.createPost({
+          userId: owner.id, body: `${parentChange} parent`, media: [], providerTaskId: null,
+        });
+        const otherPost = await setupRepository.createPost({
+          userId: owner.id, body: 'other post', media: [], providerTaskId: null,
+        });
+        const parent = await setupRepository.createComment({
+          postId: post.id,
+          userId: parentAuthor.id,
+          body: 'parent',
+          parentId: null,
+          replyToUserId: null,
+        });
+        await env.DB.prepare('delete from community_notifications').run();
+        const guardedDb = beforeFirstBatchDatabase(env.DB, async () => {
+          if (parentChange === 'deleted') {
+            await env.DB.prepare('update community_comments set status = ? where id = ?')
+              .bind('deleted', parent.id).run();
+            await env.DB.prepare('update community_posts set comment_count = ? where id = ?')
+              .bind(0, post.id).run();
+            return;
+          }
+          await env.DB.batch([
+            env.DB.prepare('update community_comments set post_id = ? where id = ?')
+              .bind(otherPost.id, parent.id),
+            env.DB.prepare('update community_posts set comment_count = ? where id = ?')
+              .bind(0, post.id),
+            env.DB.prepare('update community_posts set comment_count = ? where id = ?')
+              .bind(1, otherPost.id),
+          ]);
+        });
+        const repository = createCommunityPostRepository(guardedDb);
+
+        await expect(repository.createComment({
+          postId: post.id,
+          userId: replyAuthor.id,
+          body: 'raced reply',
+          parentId: parent.id,
+          replyToUserId: parentAuthor.id,
+        })).rejects.toThrow('comment_parent_not_found');
+
+        const state = await env.DB.prepare(
+          `select
+            (select count(*) from community_comments
+              where post_id = ? and status = ? and id != ?) as child_count,
+            (select comment_count from community_posts where id = ?) as stored_count,
+            (select count(*) from community_notifications) as notification_count`,
+        ).bind(post.id, 'published', parent.id, post.id)
+          .first<{ child_count: number; stored_count: number; notification_count: number }>();
+        expect(state).toEqual({ child_count: 0, stored_count: 0, notification_count: 0 });
+      },
+    );
+
+    it('leaves comment side effects unchanged when the post guard fails at write time', async () => {
+      const authRepository = createAuthRepository(env.DB);
+      const setupRepository = createCommunityPostRepository(env.DB);
+      const owner = await authRepository.createGuestUserRecord();
+      const actor = await authRepository.createGuestUserRecord();
+      const post = await setupRepository.createPost({
+        userId: owner.id, body: 'post guard', media: [], providerTaskId: null,
+      });
+      const repository = createCommunityPostRepository(beforeFirstBatchDatabase(env.DB, async () => {
+        await env.DB.prepare('update community_posts set status = ? where id = ?')
+          .bind('deleted', post.id).run();
+      }));
+
+      await expect(repository.createComment({
+        postId: post.id,
+        userId: actor.id,
+        body: 'must not publish',
+        parentId: null,
+        replyToUserId: null,
+      })).rejects.toThrow('post_not_found');
+
+      const state = await env.DB.prepare(
+        `select
+          (select count(*) from community_comments where post_id = ?) as comment_count,
+          (select comment_count from community_posts where id = ?) as stored_count,
+          (select count(*) from community_notifications) as notification_count`,
+      ).bind(post.id, post.id)
+        .first<{ comment_count: number; stored_count: number; notification_count: number }>();
+      expect(state).toEqual({ comment_count: 0, stored_count: 0, notification_count: 0 });
+    });
+
     it('toggles a comment like from join truth and notifies only a different author on activation', async () => {
       const authRepository = createAuthRepository(env.DB);
       const repository = createCommunityPostRepository(env.DB);
@@ -505,7 +705,8 @@ if ('__vitest_worker__' in globalThis) {
 
       const stored = await env.DB.prepare(
         `select c.like_count,
-          (select count(*) from community_comment_likes where comment_id = c.id) as join_count
+          (select count(*) from community_comment_likes
+            where comment_id = c.id and active = 1) as join_count
           from community_comments c where c.id = ?`,
       ).bind(comment.id).first<{ like_count: number; join_count: number }>();
       expect(stored).toEqual({ like_count: 1, join_count: 1 });
@@ -517,6 +718,46 @@ if ('__vitest_worker__' in globalThis) {
       }))).toEqual([{
         type: 'comment_like', actorId: actor.id, commentId: comment.id,
       }]);
+    });
+
+    it('atomically serializes concurrent comment-like transitions', async () => {
+      const authRepository = createAuthRepository(env.DB);
+      const setupRepository = createCommunityPostRepository(env.DB);
+      const postOwner = await authRepository.createGuestUserRecord();
+      const commentAuthor = await authRepository.createGuestUserRecord();
+      const actor = await authRepository.createGuestUserRecord();
+      const post = await setupRepository.createPost({
+        userId: postOwner.id, body: 'concurrent comment like', media: [], providerTaskId: null,
+      });
+      const comment = await setupRepository.createComment({
+        postId: post.id,
+        userId: commentAuthor.id,
+        body: 'like concurrently',
+        parentId: null,
+        replyToUserId: null,
+      });
+      await env.DB.prepare('delete from community_notifications').run();
+      const repository = createCommunityPostRepository(concurrentBatchDatabase(env.DB, 2));
+
+      const results = await Promise.all([
+        repository.toggleCommentLike(comment.id, actor.id),
+        repository.toggleCommentLike(comment.id, actor.id),
+      ]);
+
+      expect(results.sort((left, right) => Number(left.active) - Number(right.active))).toEqual([
+        { active: false, count: 0 },
+        { active: true, count: 1 },
+      ]);
+      const state = await env.DB.prepare(
+        `select c.like_count as stored_count,
+          (select count(*) from community_comment_likes
+            where comment_id = c.id and active = 1) as active_count,
+          (select count(*) from community_notifications
+            where comment_id = c.id and actor_user_id = ? and type = ?) as notification_count
+          from community_comments c where c.id = ?`,
+      ).bind(actor.id, 'comment_like', comment.id)
+        .first<{ stored_count: number; active_count: number; notification_count: number }>();
+      expect(state).toEqual({ stored_count: 0, active_count: 0, notification_count: 1 });
     });
 
     it('rejects a comment like for a missing or deleted comment', async () => {
@@ -596,6 +837,39 @@ if ('__vitest_worker__' in globalThis) {
         'select comment_count from community_posts where id = ?',
       ).bind(post.id).first<{ comment_count: number }>();
       expect(storedPost?.comment_count).toBe(1);
+    });
+
+    it('reports exactly one success for concurrent comment deletion', async () => {
+      const authRepository = createAuthRepository(env.DB);
+      const setupRepository = createCommunityPostRepository(env.DB);
+      const postOwner = await authRepository.createGuestUserRecord();
+      const commentAuthor = await authRepository.createGuestUserRecord();
+      const post = await setupRepository.createPost({
+        userId: postOwner.id, body: 'concurrent delete', media: [], providerTaskId: null,
+      });
+      const comment = await setupRepository.createComment({
+        postId: post.id,
+        userId: commentAuthor.id,
+        body: 'delete once',
+        parentId: null,
+        replyToUserId: null,
+      });
+      const repository = createCommunityPostRepository(concurrentBatchDatabase(env.DB, 2));
+
+      const results = await Promise.all([
+        repository.deleteComment(comment.id, commentAuthor.id),
+        repository.deleteComment(comment.id, commentAuthor.id),
+      ]);
+
+      expect(results.sort()).toEqual([false, true]);
+      const state = await env.DB.prepare(
+        `select c.status,
+          (select count(*) from community_comments where post_id = c.post_id and status = ?) as published_count,
+          (select comment_count from community_posts where id = c.post_id) as stored_count
+          from community_comments c where c.id = ?`,
+      ).bind('published', comment.id)
+        .first<{ status: string; published_count: number; stored_count: number }>();
+      expect(state).toEqual({ status: 'deleted', published_count: 0, stored_count: 0 });
     });
 
     it('lists the newest 50 notifications with domain booleans and actor fallback', async () => {
@@ -691,5 +965,41 @@ if ('__vitest_worker__' in globalThis) {
 
   function toBase64Url(value: unknown) {
     return btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+
+  function concurrentBatchDatabase(db: D1Database, expectedBatches: number) {
+    let arrivals = 0;
+    let release!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    return {
+      prepare(query: string) {
+        return db.prepare(query);
+      },
+      async batch(statements: D1PreparedStatement[]) {
+        arrivals += 1;
+        if (arrivals === expectedBatches) release();
+        await ready;
+        return db.batch(statements);
+      },
+    } satisfies Pick<D1Database, 'batch' | 'prepare'>;
+  }
+
+  function beforeFirstBatchDatabase(db: D1Database, beforeBatch: () => Promise<void>) {
+    let first = true;
+    return {
+      prepare(query: string) {
+        return db.prepare(query);
+      },
+      async batch(statements: D1PreparedStatement[]) {
+        if (first) {
+          first = false;
+          await beforeBatch();
+        }
+        return db.batch(statements);
+      },
+    } satisfies Pick<D1Database, 'batch' | 'prepare'>;
   }
 }

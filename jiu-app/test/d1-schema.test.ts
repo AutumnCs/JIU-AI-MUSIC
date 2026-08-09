@@ -23,4 +23,28 @@ describe("D1 migration", () => {
 
     expect(result.results.map((row) => row.name)).toEqual(EXPECTED_TABLES);
   });
+
+  it.each([
+    "community_post_likes",
+    "community_post_favorites",
+    "community_comment_likes",
+  ])("stores atomic transition state on %s", async (table) => {
+    const result = await env.DB.prepare(`pragma table_info(${table})`).all<{
+      name: string;
+      notnull: number;
+      dflt_value: string | null;
+    }>();
+
+    expect(result.results
+      .filter((column) => column.name === "active" || column.name === "operation_token")
+      .map(({ name, notnull, dflt_value: defaultValue }) => ({
+        name,
+        notnull,
+        defaultValue,
+      })))
+      .toEqual([
+        { name: "active", notnull: 1, defaultValue: "1" },
+        { name: "operation_token", notnull: 0, defaultValue: null },
+      ]);
+  });
 });

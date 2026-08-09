@@ -69,6 +69,8 @@ create table if not exists community_post_likes (
   post_id text not null references community_posts(id) on delete cascade,
   user_id text not null references users(id) on delete cascade,
   created_at text not null,
+  active integer not null default 1 check (active in (0, 1)),
+  operation_token text,
   primary key (post_id, user_id)
 );
 
@@ -76,6 +78,8 @@ create table if not exists community_post_favorites (
   post_id text not null references community_posts(id) on delete cascade,
   user_id text not null references users(id) on delete cascade,
   created_at text not null,
+  active integer not null default 1 check (active in (0, 1)),
+  operation_token text,
   primary key (post_id, user_id)
 );
 
@@ -97,6 +101,8 @@ create table if not exists community_comment_likes (
   comment_id text not null references community_comments(id) on delete cascade,
   user_id text not null references users(id) on delete cascade,
   created_at text not null,
+  active integer not null default 1 check (active in (0, 1)),
+  operation_token text,
   primary key (comment_id, user_id)
 );
 
