@@ -67,13 +67,49 @@ if ('__vitest_worker__' in globalThis) {
       failureCode: null,
       failureMessage: null,
     });
-    expect(await repository.updateMusicTaskRecord(firstTask.providerTaskId, otherUser.id, { status: 'success' })).toBeNull();
+    expect(await repository.updateMusicTaskRecord(firstTask.providerTaskId, otherUser.id, {
+      status: 'success',
+      progress: 100,
+      audioUrl: 'https://example.test/unauthorized-task.wav',
+      lyrics: 'unauthorized lyrics',
+      failureCode: 500,
+      failureMessage: 'unauthorized overwrite',
+    })).toBeNull();
+    expect(await repository.findMusicTaskRecord(firstTask.providerTaskId, owner.id)).toMatchObject({
+      id: firstTask.id,
+      status: 'failed',
+      progress: 0,
+      audioUrl: null,
+      lyrics: null,
+      failureCode: null,
+      failureMessage: null,
+    });
+
+    const otherTaskWithSameProviderId = await repository.createMusicTaskRecord({
+      userId: otherUser.id,
+      providerTaskId: firstTask.providerTaskId,
+      track: 'vocal',
+      requestPayload: { prompt: 'other owner', duration: 45 },
+    });
+    expect(await repository.updateMusicTaskRecord(firstTask.providerTaskId, owner.id, { progress: 1 }))
+      .toMatchObject({ id: firstTask.id, status: 'failed', progress: 1 });
+    expect(await repository.findMusicTaskRecord(firstTask.providerTaskId, otherUser.id)).toMatchObject({
+      id: otherTaskWithSameProviderId.id,
+      status: 'pending',
+      progress: 0,
+      audioUrl: null,
+      lyrics: null,
+      failureCode: null,
+      failureMessage: null,
+    });
 
     expect((await repository.listMusicTasks(owner.id)).map((task) => task.id)).toEqual([
       secondTask.id,
       firstTask.id,
     ]);
-    expect(await repository.listMusicTasks(otherUser.id)).toEqual([]);
+    expect((await repository.listMusicTasks(otherUser.id)).map((task) => task.id)).toEqual([
+      otherTaskWithSameProviderId.id,
+    ]);
   });
 
     it('maps invalid stored request JSON to an empty object', async () => {
