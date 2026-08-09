@@ -106,7 +106,7 @@ export function createCommunityPostRepository(db: CommunityDatabase) {
       limit?: number;
     }): Promise<{ posts: CommunityPost[]; nextCursor: string | null }> {
       const safeLimit = normalizeLimit(input.limit);
-      const cursor = input.cursor ? decodeCursor(input.cursor, input.sort) : null;
+      const cursor = input.cursor === undefined ? null : decodeCursor(input.cursor, input.sort);
       const scoreSql = '(p.like_count + p.favorite_count + p.comment_count)';
       let cursorSql = '';
       const cursorBindings: Array<string | number> = [];

@@ -268,6 +268,7 @@ if ('__vitest_worker__' in globalThis) {
       const viewer = await authRepository.createGuestUserRecord();
       const timestamp = '2026-01-01T00:00:00.000Z';
       const cases: Array<{ sort: 'latest' | 'hot'; cursor: string }> = [
+        { sort: 'latest', cursor: '' },
         { sort: 'latest', cursor: 'not+base64url' },
         { sort: 'latest', cursor: toBase64Url(['hot', 1, timestamp, 'post-id']) },
         { sort: 'latest', cursor: toBase64Url(['latest', timestamp]) },
