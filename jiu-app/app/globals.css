@@ -47,10 +47,18 @@ body {
   position: sticky;
   top: 0;
   z-index: 30;
-  min-height: 64px;
+  min-height: 88px;
   padding: max(0.65rem, env(safe-area-inset-top)) 1rem 0.65rem;
   border-bottom: 1px solid var(--jiu-border);
   background: rgba(255, 249, 242, 0.9);
+  backdrop-filter: blur(18px);
+}
+
+.jiu-tab-bar {
+  position: sticky;
+  top: calc(5.5rem + env(safe-area-inset-top, 0px));
+  z-index: 25;
+  border: 1px solid var(--jiu-border);
   backdrop-filter: blur(18px);
 }
 
