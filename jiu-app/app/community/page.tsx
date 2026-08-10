@@ -94,6 +94,7 @@ export default function CommunityPage() {
         {(['latest', 'hot'] as const).map((item) => <button key={item} type="button" onClick={() => setSort(item)} className={`min-h-10 flex-1 rounded-xl text-sm font-black ${sort === item ? 'bg-[#FF9F43] text-white' : 'text-[#8A7666]'}`}>{item === 'latest' ? '最新' : '热门'}</button>)}
       </div>
     </header>
+    <p className="px-4 pt-3 text-xs text-[#67594E]">分享你的音乐作品，听听大家的灵感</p>
     {error && <p role="status" className="mx-4 mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{error}</p>}
     <section className="mx-auto max-w-lg space-y-4 p-4">
       {!loading && posts.length === 0 && <div className="rounded-3xl bg-white p-10 text-center text-sm font-bold text-[#8A7666]">还没有帖子，发布第一首作品吧。</div>}

@@ -82,8 +82,8 @@ export default function MePage() {
 
   const user = authState.user;
   const displayName = user?.displayName ?? (user?.type === 'guest' ? '游客创作者' : '啾啾音乐人');
-  return <main className="jiu-page px-4 pt-4">
-    <header className="jiu-header -mx-4 flex items-center gap-3 px-4">
+  return <main className="jiu-page px-4">
+    <header className="jiu-header -mx-4 flex flex-row-reverse items-center gap-3 px-4">
       <button type="button" onClick={() => fileInput.current?.click()} className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-[#DFF3EF] text-2xl shadow-md" aria-label="修改头像">
         {user?.avatarUrl ? <img src={user.avatarUrl} alt="我的头像" className="h-full w-full object-cover" /> : '🐦'}
         <span className="absolute inset-x-0 bottom-0 bg-[#2C3E50]/75 py-0.5 text-center text-[9px] font-bold text-white">修改</span>
