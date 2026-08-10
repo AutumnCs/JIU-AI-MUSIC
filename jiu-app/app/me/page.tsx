@@ -1,16 +1,18 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
-import type { AuthUser } from '@/lib/auth/types';
+import type { AuthState, AuthUser } from '@/lib/auth/types';
 import { useGlobalStore } from '@/stores/globalStore';
 
 type Work = { id: string; taskId: string; title: string; audio: string; genre: string; mood: string; createdAt: string };
 type Notification = { id: string; type: string; actorName: string; createdAt: string };
 
 export default function MePage() {
-  const { authState, fragments, unlockedBirds, setUser } = useGlobalStore();
+  const router = useRouter();
+  const { authState, fragments, unlockedBirds, setUser, setAuthState } = useGlobalStore();
   const [works, setWorks] = useState<Work[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [editingName, setEditingName] = useState(false);
@@ -64,6 +66,23 @@ export default function MePage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : '保存失败'); throw cause; } finally { setSaving(false); }
   };
 
+  const logout = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      const guestResponse = await fetch('/api/auth/guest', { method: 'POST' });
+      const guestPayload = await guestResponse.json() as { user?: AuthUser; session?: AuthState['session'] };
+      if (!guestResponse.ok || !guestPayload.user) throw new Error('退出后游客模式初始化失败');
+      setAuthState({ user: guestPayload.user, session: guestPayload.session ?? null, source: 'server' });
+      router.replace('/me');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '退出登录失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const user = authState.user;
   const displayName = user?.displayName ?? (user?.type === 'guest' ? '游客创作者' : '啾啾音乐人');
   return <main className="jiu-page px-4 pt-4">
@@ -77,6 +96,7 @@ export default function MePage() {
     </header>
 
     {user?.type === 'guest' && <section className="mt-4 rounded-3xl border border-[#F2D1AD] bg-gradient-to-r from-[#FFF1D8] to-[#EAF5EA] p-4 shadow-sm"><p className="text-sm font-black text-[#4A3B32]">把这段创作旅程保存下来</p><p className="mt-1 text-xs leading-5 text-[#75685D]">注册邮箱账号后，作品、社区帖子和探索进度都不会丢。</p><Link href="/login?next=/me" className="mt-3 inline-flex min-h-11 items-center rounded-2xl bg-[#E47A24] px-4 text-sm font-black text-white">登录 / 注册账号</Link></section>}
+    {user?.type === 'email' && <button type="button" disabled={saving} onClick={() => void logout()} className="mt-4 min-h-11 rounded-2xl border border-[#E8D5C2] bg-white px-4 text-sm font-black text-[#8A7666] shadow-sm">{saving ? '正在退出...' : '退出登录'}</button>}
 
     {editingName && <div className="jiu-card mt-4 p-4"><label className="text-xs font-bold text-[#75685D]" htmlFor="display-name">修改名字</label><div className="mt-2 flex gap-2"><input id="display-name" autoFocus value={name} maxLength={24} onChange={(event) => setName(event.target.value)} className="min-h-11 min-w-0 flex-1 rounded-2xl border border-[#E8D5C2] bg-white px-3 outline-none" /><button type="button" disabled={saving} onClick={() => void saveName()} className="rounded-2xl bg-[#FF9F43] px-4 text-sm font-black text-white">保存</button><button type="button" onClick={() => { setEditingName(false); setName(user?.displayName ?? ''); }} className="rounded-2xl bg-[#F0E9E1] px-3 text-sm font-bold text-[#75685D]">取消</button></div></div>}
     {error && <p role="status" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600">{error}</p>}
