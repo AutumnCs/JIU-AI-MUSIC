@@ -52,7 +52,7 @@ export function createWorkshopClient(
     readDraft: () => readWorkshopDraft(activeUserId, source) ?? copyDraft(DEFAULT_DRAFT),
     readWorks: () => readWorkshopWorks(activeUserId, source),
     writeDraft: (draft) => writeWorkshopDraft(activeUserId, draft),
-    generate: (draft, onProgress) => generateWithProvider(musicProvider ?? provider, fallbackProvider, draft, onProgress),
+    generate: (draft, onProgress) => generateWithProvider(musicProvider ?? provider, source === 'local' ? fallbackProvider : undefined, draft, onProgress),
     writeWork: (result, work) => writeWorkshopWork(activeUserId, {
       ...work,
       taskId: result.taskId,
@@ -68,7 +68,7 @@ export function createWorkshopClient(
 
 async function generateWithProvider(
   provider: WorkshopProvider,
-  fallbackProvider: WorkshopProvider,
+  fallbackProvider: WorkshopProvider | undefined,
   draft: WorkshopDraft,
   onProgress?: (task: WorkshopTask) => void,
 ): Promise<WorkshopTask> {
@@ -76,7 +76,7 @@ async function generateWithProvider(
   try {
     task = await provider.createTask(draft);
   } catch (error) {
-    if (provider.provider !== 'upstream') throw error;
+    if (provider.provider !== 'upstream' || !fallbackProvider) throw error;
     task = await fallbackProvider.createTask(draft);
   }
   onProgress?.(task);

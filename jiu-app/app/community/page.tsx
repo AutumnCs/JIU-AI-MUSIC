@@ -88,9 +88,9 @@ export default function CommunityPage() {
   };
 
   return <main className="jiu-page">
-    <header className="jiu-header flex items-center justify-between">
+    <header className="jiu-header">
       <div><p className="text-[10px] font-bold tracking-[0.18em] text-[#A77950]">JIU COMMUNITY</p><h1 className="mt-1 text-[22px] font-black tracking-tight text-[#263746]">啾啾社区</h1></div>
-      <div className="flex max-w-[13rem] rounded-2xl bg-white/80 p-1 shadow-sm">
+      <div className="mt-3 flex w-full rounded-2xl bg-white/80 p-1 shadow-sm">
         {(['latest', 'hot'] as const).map((item) => <button key={item} type="button" onClick={() => setSort(item)} className={`min-h-10 flex-1 rounded-xl text-sm font-black ${sort === item ? 'bg-[#FF9F43] text-white' : 'text-[#8A7666]'}`}>{item === 'latest' ? '最新' : '热门'}</button>)}
       </div>
     </header>
