@@ -4,6 +4,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 type Post = {
   id: string;
@@ -88,9 +89,7 @@ export default function CommunityPage() {
   };
 
   return <main className="jiu-page">
-    <header className="jiu-header">
-      <div><p className="text-[10px] font-bold tracking-[0.18em] text-[#A77950]">JIU COMMUNITY</p><h1 className="mt-1 text-[22px] font-black tracking-tight text-[#263746]">啾啾社区</h1><p className="mt-0.5 text-xs text-[#67594E]">分享你的音乐作品，听听大家的灵感</p></div>
-    </header>
+    <PageHeader eyebrow="JIU COMMUNITY" title="啾啾社区" subtitle="分享你的音乐作品，听听大家的灵感" />
     <div className="jiu-tab-bar mx-4 mt-3 flex rounded-2xl bg-white/80 p-1 shadow-sm">
       {(['latest', 'hot'] as const).map((item) => <button key={item} type="button" onClick={() => setSort(item)} className={`min-h-10 flex-1 rounded-xl text-sm font-black ${sort === item ? 'bg-[#FF9F43] text-white' : 'text-[#8A7666]'}`}>{item === 'latest' ? '最新' : '热门'}</button>)}
     </div>

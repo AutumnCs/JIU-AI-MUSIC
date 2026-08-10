@@ -3,6 +3,7 @@
 import { useGlobalStore } from '@/stores/globalStore';
 import { LEVELS } from '@/lib/constants';
 import { AcademyMap } from '@/components/academy/AcademyMap';
+import { PageHeader } from '@/components/layout/PageHeader';
 import styles from './academy.module.css';
 
 export default function AcademyPage() {
@@ -13,20 +14,16 @@ export default function AcademyPage() {
 
   return (
     <main className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.headerTop}>
-          <div className={styles.titleGroup}>
-            <div>
-              <span className={styles.eyebrow}>JIU MUSIC ACADEMY</span>
-              <h1 className={styles.title}>音乐探索地图</h1>
-              <p className={styles.subtitle}>从田野出发，一路唱进山林</p>
-            </div>
+      <PageHeader
+        eyebrow="JIU MUSIC ACADEMY"
+        title="音乐探索地图"
+        subtitle="从田野出发，一路唱进山林"
+        right={(
+          <div className="jiu-status-badge rounded-full px-3 py-1.5 text-xs font-extrabold">
+            <span>已完成 </span><strong className="text-[#E47A24]">{completedCount}</strong> / {LEVELS.length}
           </div>
-          <div className={styles.progressCount}>
-            <span>已完成 </span><strong>{completedCount}</strong> / {LEVELS.length}
-          </div>
-        </div>
-      </header>
+        )}
+      />
 
       <div className={styles.mapFrame}>
         <AcademyMap progress={academyProgress} />

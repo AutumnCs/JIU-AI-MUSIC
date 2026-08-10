@@ -54,6 +54,59 @@ body {
   backdrop-filter: blur(18px);
 }
 
+/* One measured header system keeps Academy, Workshop, Community and Collection aligned. */
+.jiu-page-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  min-height: 88px;
+  padding: max(0.65rem, env(safe-area-inset-top)) 1rem 0.65rem;
+  border-bottom: 1px solid var(--jiu-border);
+  background: rgba(255, 249, 242, 0.9);
+  backdrop-filter: blur(18px);
+}
+
+.jiu-page-header__row {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.jiu-page-header__eyebrow {
+  margin: 0;
+  color: #A77950;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.18em;
+}
+
+.jiu-page-header__title {
+  margin: 0.25rem 0 0;
+  color: #263746;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.jiu-page-header__subtitle {
+  margin: 0.125rem 0 0;
+  color: #67594E;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.jiu-page-header__right {
+  flex: 0 0 auto;
+}
+
+.jiu-page-header__children {
+  margin-top: 0.75rem;
+}
+
 .jiu-tab-bar {
   position: sticky;
   top: calc(5.5rem + env(safe-area-inset-top, 0px));
