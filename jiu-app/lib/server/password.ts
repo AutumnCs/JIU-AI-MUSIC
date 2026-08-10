@@ -1,4 +1,5 @@
-const ITERATIONS = 120_000;
+// Cloudflare Workers Web Crypto accepts PBKDF2 iteration counts up to 100,000.
+const ITERATIONS = 100_000;
 const KEY_LENGTH = 32;
 
 export async function hashPassword(password: string): Promise<{ hash: string; salt: string }> {
