@@ -123,3 +123,7 @@ export async function updateMusicTaskRecord(
 ): Promise<MusicTask | null> {
   return createMusicTaskRepository(getD1Database()).updateMusicTaskRecord(providerTaskId, userId, patch);
 }
+
+export async function listMusicTasks(userId: string): Promise<MusicTask[]> {
+  return createMusicTaskRepository(getD1Database()).listMusicTasks(userId);
+}

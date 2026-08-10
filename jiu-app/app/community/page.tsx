@@ -4,9 +4,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { readWorkshopWorks } from '@/lib/workshop/storage';
-import { getActiveUserId } from '@/lib/auth/active-user';
-import { useGlobalStore } from '@/stores/globalStore';
 
 type Post = {
   id: string;
@@ -22,15 +19,32 @@ type Post = {
   createdAt: string;
 };
 
+type Work = {
+  id: string;
+  taskId: string;
+  title: string;
+  audio: string;
+  genre: string;
+  mood: string;
+};
+
 export default function CommunityPage() {
-  const { authState } = useGlobalStore();
-  const userId = getActiveUserId(authState);
   const [sort, setSort] = useState<'latest' | 'hot'>('latest');
   const [posts, setPosts] = useState<Post[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPublish, setShowPublish] = useState(false);
   const [error, setError] = useState('');
+  const [works, setWorks] = useState<Work[]>([]);
+
+  useEffect(() => {
+    void (async () => {
+      const response = await fetch('/api/music/tasks');
+      if (!response.ok) return;
+      const payload = await response.json() as { works?: Work[] };
+      setWorks(payload.works ?? []);
+    })();
+  }, []);
 
   const loadPosts = async (reset = true) => {
     setLoading(true);
@@ -90,7 +104,7 @@ export default function CommunityPage() {
       </section>
 
       <button type="button" onClick={() => setShowPublish(true)} aria-label="发布帖子" className="fixed bottom-24 right-5 z-30 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#FFAD57] to-[#F47B43] text-4xl font-light text-white shadow-xl">+</button>
-      {showPublish && <PublishDialog userId={userId} onClose={() => setShowPublish(false)} onPublished={() => { setShowPublish(false); void loadPosts(true); }} />}
+      {showPublish && <PublishDialog works={works} onClose={() => setShowPublish(false)} onPublished={() => { setShowPublish(false); void loadPosts(true); }} />}
     </main>
   );
 }
@@ -108,8 +122,7 @@ function PostCard({ post, onToggle }: { post: Post; onToggle: (post: Post, kind:
   </article>;
 }
 
-function PublishDialog({ userId, onClose, onPublished }: { userId: string | null; onClose: () => void; onPublished: () => void }) {
-  const works = userId ? readWorkshopWorks(userId, 'server').filter((work) => work.status === 'saved' || work.status === 'published') : [];
+function PublishDialog({ works, onClose, onPublished }: { works: Work[]; onClose: () => void; onPublished: () => void }) {
   const [body, setBody] = useState('');
   const [media, setMedia] = useState('');
   const [providerTaskId, setProviderTaskId] = useState('');
@@ -119,7 +132,7 @@ function PublishDialog({ userId, onClose, onPublished }: { userId: string | null
     if (!response.ok) { const payload = await response.json() as { message?: string }; setError(payload.message ?? '发布失败'); return; }
     onPublished();
   };
-  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-0" onClick={onClose}><section className="w-full max-w-lg rounded-t-3xl bg-[#FFF9F2] p-5" onClick={(event) => event.stopPropagation()}><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-black text-[#352B25]">发布帖子</h2><button type="button" onClick={onClose} className="text-2xl text-[#8A7666]">×</button></div><textarea value={body} onChange={(event) => setBody(event.target.value)} maxLength={2000} placeholder="分享你的创作心情..." className="min-h-28 w-full rounded-2xl border border-[#F0E5DA] bg-white p-3 outline-none" /><input value={media} onChange={(event) => setMedia(event.target.value)} placeholder="图片地址，可填写多个，用空格分隔" className="mt-3 min-h-12 w-full rounded-2xl border border-[#F0E5DA] bg-white px-3 outline-none" /><select value={providerTaskId} onChange={(event) => setProviderTaskId(event.target.value)} className="mt-3 min-h-12 w-full rounded-2xl border border-[#F0E5DA] bg-white px-3"><option value="">不附加音乐</option>{works.map((work) => <option key={work.id} value={work.taskId ?? ''} disabled={!work.taskId}>{work.title}{work.taskId ? '' : '（旧作品暂不可关联）'}</option>)}</select>{error && <p className="mt-3 text-sm font-bold text-red-600">{error}</p>}<button type="button" onClick={() => void submit()} className="mt-4 min-h-13 w-full rounded-2xl bg-[#FF9F43] font-black text-white">发布</button></section></div>;
+  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-0" onClick={onClose}><section className="w-full max-w-lg rounded-t-3xl bg-[#FFF9F2] p-5" onClick={(event) => event.stopPropagation()}><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-black text-[#352B25]">发布帖子</h2><button type="button" onClick={onClose} className="text-2xl text-[#8A7666]">×</button></div><textarea value={body} onChange={(event) => setBody(event.target.value)} maxLength={2000} placeholder="分享你的创作心情..." className="min-h-28 w-full rounded-2xl border border-[#F0E5DA] bg-white p-3 outline-none" /><input value={media} onChange={(event) => setMedia(event.target.value)} placeholder="图片地址，可填写多个，用空格分隔" className="mt-3 min-h-12 w-full rounded-2xl border border-[#F0E5DA] bg-white px-3 outline-none" /><select value={providerTaskId} onChange={(event) => setProviderTaskId(event.target.value)} className="mt-3 min-h-12 w-full rounded-2xl border border-[#F0E5DA] bg-white px-3"><option value="">不附加音乐</option>{works.map((work) => <option key={work.id} value={work.taskId}>{work.title}</option>)}</select>{error && <p className="mt-3 text-sm font-bold text-red-600">{error}</p>}<button type="button" onClick={() => void submit()} className="mt-4 min-h-13 w-full rounded-2xl bg-[#FF9F43] font-black text-white">发布</button></section></div>;
 }
 
 function relativeTime(value: string) { const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000)); if (seconds < 60) return '刚刚'; if (seconds < 3600) return `${Math.floor(seconds / 60)} 分钟前`; if (seconds < 86400) return `${Math.floor(seconds / 3600)} 小时前`; return `${Math.floor(seconds / 86400)} 天前`; }

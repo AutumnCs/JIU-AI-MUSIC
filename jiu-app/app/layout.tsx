@@ -18,20 +18,49 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
-    let authState = readLocalAuthState();
-    if (!authState.user) {
-      authState = {
-        user: { id: getLocalGuestId(), type: 'guest' },
-        session: null,
-        source: 'local',
-      } satisfies AuthState;
-      saveLocalAuthState(authState);
-    }
+    let cancelled = false;
 
-    init(authState);
-    setMounted(true);
-    const onboarded = localStorage.getItem('jiu_onboarded');
-    if (!onboarded) setShowOnboarding(true);
+    void (async () => {
+      let authState = readLocalAuthState();
+      if (!authState.user || authState.source === 'local') {
+        try {
+          const response = await fetch('/api/auth/guest', { method: 'POST' });
+          if (response.ok) {
+            const payload = await response.json() as {
+              user?: AuthState['user'];
+              session?: AuthState['session'];
+            };
+            if (payload.user) {
+              authState = {
+                user: payload.user,
+                session: payload.session ?? null,
+                source: 'server',
+              } satisfies AuthState;
+              saveLocalAuthState(authState);
+            }
+          }
+        } catch {
+          // Keep the local guest fallback when the API is temporarily unavailable.
+        }
+      }
+
+      if (cancelled) return;
+      if (!authState.user) {
+        authState = {
+          user: { id: getLocalGuestId(), type: 'guest' },
+          session: null,
+          source: 'local',
+        } satisfies AuthState;
+        saveLocalAuthState(authState);
+      }
+
+      init(authState);
+      setMounted(true);
+      const onboarded = localStorage.getItem('jiu_onboarded');
+      if (!onboarded) setShowOnboarding(true);
+    })();
+
+    return () => { cancelled = true; };
   }, [init]);
 
   if (!mounted) {
