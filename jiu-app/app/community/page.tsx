@@ -23,6 +23,7 @@ type Post = {
 type Work = { id: string; taskId: string; title: string; audio: string; genre: string; mood: string };
 
 export default function CommunityPage() {
+  const [initialTaskId, setInitialTaskId] = useState('');
   const [sort, setSort] = useState<'latest' | 'hot'>('latest');
   const [posts, setPosts] = useState<Post[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -55,6 +56,7 @@ export default function CommunityPage() {
   };
 
   useEffect(() => { void loadPosts(true); }, [sort]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setInitialTaskId(new URLSearchParams(window.location.search).get('musicTaskId') ?? ''); }, []);
   useEffect(() => {
     void (async () => {
       const response = await fetch('/api/music/tasks');
@@ -99,7 +101,7 @@ export default function CommunityPage() {
       <div ref={sentinel} className="h-8 text-center text-xs font-bold text-[#A49488]">{loading && posts.length > 0 ? '加载中...' : cursor ? '继续下滑加载更多' : ''}</div>
     </section>
     <button type="button" onClick={() => setShowPublish(true)} aria-label="发布帖子" className="fixed bottom-24 right-5 z-30 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#FFAD57] to-[#F47B43] text-4xl font-light text-white shadow-xl">+</button>
-    {showPublish && <PublishDialog works={works} onClose={() => setShowPublish(false)} onPublished={() => { setShowPublish(false); void loadPosts(true); }} />}
+    {showPublish && <PublishDialog works={works} initialTaskId={initialTaskId} onClose={() => setShowPublish(false)} onPublished={() => { setShowPublish(false); void loadPosts(true); }} />}
   </main>;
 }
 
@@ -114,10 +116,10 @@ function PostCard({ post, onToggle }: { post: Post; onToggle: (post: Post, kind:
   </article>;
 }
 
-function PublishDialog({ works, onClose, onPublished }: { works: Work[]; onClose: () => void; onPublished: () => void }) {
+function PublishDialog({ works, initialTaskId, onClose, onPublished }: { works: Work[]; initialTaskId: string; onClose: () => void; onPublished: () => void }) {
   const [body, setBody] = useState('');
   const [media, setMedia] = useState<string[]>([]);
-  const [providerTaskId, setProviderTaskId] = useState('');
+  const [providerTaskId, setProviderTaskId] = useState(initialTaskId);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const upload = async (files: FileList | null) => {
