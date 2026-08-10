@@ -1,9 +1,6 @@
 import path from "node:path";
 import { defineConfig } from "vitest/config";
 
-process.env.CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE ??=
-  "postgres://test:test@127.0.0.1:5432/test";
-
 export default defineConfig(async () => {
   const { cloudflareTest, readD1Migrations } = await import(
     "@cloudflare/vitest-pool-workers"
