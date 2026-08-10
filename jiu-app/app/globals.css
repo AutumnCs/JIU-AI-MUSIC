@@ -88,6 +88,35 @@ body {
   backdrop-filter: blur(18px);
 }
 
+.me-page > .jiu-header {
+  min-height: 104px;
+  padding-right: 1.25rem;
+  padding-left: 1.25rem;
+  gap: 1.25rem;
+}
+
+.me-page > .jiu-header > button:first-of-type {
+  width: 76px;
+  height: 76px;
+  font-size: 1.875rem;
+}
+
+.me-page > .jiu-header h1 {
+  font-size: 30px;
+  line-height: 1.15;
+}
+
+.me-page > .jiu-header h1 + button {
+  width: 36px;
+  height: 36px;
+  font-size: 1rem;
+}
+
+.me-page > .jiu-header p:last-child {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+}
+
 /* Keep the community composer beside, rather than underneath, the companion button. */
 button.fixed[class~="bottom-24"][class~="right-5"] {
   right: 5.5rem;
