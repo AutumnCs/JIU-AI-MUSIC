@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import { getActiveUserId } from '@/lib/auth/active-user';
+import { saveLocalAuthState } from '@/lib/auth/session';
 import { BIRDS } from '@/lib/constants';
 import type { AuthState } from '@/lib/auth/types';
 
@@ -41,6 +42,7 @@ interface GlobalState {
 
   init: (authState: AuthState) => void;
   setUser: (user: AuthState['user']) => void;
+  setAuthState: (authState: AuthState) => void;
   setCurrentBird: (id: number) => void;
   addFragment: (type: FragmentType, count: number) => void;
   unlockBird: (id: number) => void;
@@ -113,6 +115,12 @@ export const useGlobalStore = create<GlobalState>((set, get) => ({
       persistState({ ...state, authState });
       return { authState };
     });
+  },
+
+  setAuthState: (authState) => {
+    set({ authState });
+    saveLocalAuthState(authState);
+    persistState(get());
   },
 
   setCurrentBird: (id) => {

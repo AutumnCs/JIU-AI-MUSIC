@@ -13,6 +13,8 @@ type UserRow = {
   display_name: string | null;
   avatar_url: string | null;
   email: string | null;
+  password_hash: string | null;
+  password_salt: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -59,6 +61,39 @@ export function createAuthRepository(db: D1Database) {
         'select id, type, display_name, avatar_url, email, created_at, updated_at from users where id = ? limit 1',
       ).bind(id).first<UserRow>();
       return row ? toAuthUser(row) : null;
+    },
+
+    async findEmailCredential(email: string): Promise<{ userId: string; passwordHash: string; passwordSalt: string } | null> {
+      const row = await db.prepare(
+        'select id, password_hash, password_salt from users where email = ? and type = \'email\' limit 1',
+      ).bind(email).first<{ id: string; password_hash: string | null; password_salt: string | null }>();
+      if (!row?.password_hash || !row.password_salt) return null;
+      return { userId: row.id, passwordHash: row.password_hash, passwordSalt: row.password_salt };
+    },
+
+    async createEmailUserRecord(input: {
+      email: string;
+      passwordHash: string;
+      passwordSalt: string;
+      displayName: string;
+      guestUserId?: string;
+    }): Promise<AuthUser> {
+      const now = nowIso();
+      if (input.guestUserId) {
+        const result = await db.prepare(
+          'update users set type = \'email\', email = ?, display_name = ?, password_hash = ?, password_salt = ?, updated_at = ? where id = ? and type = \'guest\' and email is null',
+        ).bind(input.email, input.displayName, input.passwordHash, input.passwordSalt, now, input.guestUserId).run();
+        if (result.meta.changes !== 1) throw new Error('invalid_guest_upgrade');
+        const upgraded = await this.findUserRecord(input.guestUserId);
+        if (!upgraded) throw new Error('user_not_found');
+        return upgraded;
+      }
+
+      const id = crypto.randomUUID();
+      await db.prepare(
+        'insert into users (id, type, display_name, email, password_hash, password_salt, created_at, updated_at) values (?, \'email\', ?, ?, ?, ?, ?, ?)',
+      ).bind(id, input.displayName, input.email, input.passwordHash, input.passwordSalt, now, now).run();
+      return { id, type: 'email', displayName: input.displayName, email: input.email };
     },
 
     async revokeSessionRecord(id: string): Promise<void> {

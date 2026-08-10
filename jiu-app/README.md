@@ -41,3 +41,18 @@ npx wrangler deploy
 - `lib/server/*`：服务端身份、会话、D1 repositories 和数据库 facade。
 - `lib/auth/*`：前后端共享的身份类型。
 - `stores/globalStore.ts`：前端本地状态。
+
+## 邮箱账号
+
+当前支持邮箱密码注册和登录，不需要邮箱验证码或邮件服务：
+
+- `POST /api/auth/register`：传入 `email`、`password`、`displayName`。
+- `POST /api/auth/login`：传入 `email`、`password`。
+- `POST /api/auth/logout`：撤销当前 HttpOnly session。
+
+密码只在 Worker 服务端使用 Web Crypto PBKDF2 哈希保存。游客在注册时会升级为邮箱账号，已有作品、社区帖子和互动数据会保留。首次启用前执行：
+
+```bash
+npx wrangler d1 migrations apply jiu-music-db --local
+npx wrangler d1 migrations apply jiu-music-db --remote
+```

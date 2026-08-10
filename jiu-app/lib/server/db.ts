@@ -104,6 +104,14 @@ export async function updateUserProfile(userId: string, input: { displayName?: s
   return createAuthRepository(getD1Database()).updateUserProfile(userId, input);
 }
 
+export async function findEmailCredential(email: string): Promise<{ userId: string; passwordHash: string; passwordSalt: string } | null> {
+  return createAuthRepository(getD1Database()).findEmailCredential(email);
+}
+
+export async function createEmailUserRecord(input: { email: string; passwordHash: string; passwordSalt: string; displayName: string; guestUserId?: string }): Promise<AuthUser> {
+  return createAuthRepository(getD1Database()).createEmailUserRecord(input);
+}
+
 export async function revokeSessionRecord(id: string): Promise<void> {
   await createAuthRepository(getD1Database()).revokeSessionRecord(id);
 }

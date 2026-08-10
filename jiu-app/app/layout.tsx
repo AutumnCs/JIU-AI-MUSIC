@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useGlobalStore } from '@/stores/globalStore';
 import {
   getLocalGuestId,
@@ -14,6 +15,7 @@ import './globals.css';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const { init } = useGlobalStore();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
@@ -86,8 +88,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-[#FFF8F0] max-w-lg mx-auto relative min-h-screen">
         {showOnboarding && <Onboarding onComplete={() => setShowOnboarding(false)} />}
         {children}
-        <BottomNav />
-        <BirdCompanion />
+        {pathname !== '/login' && <BottomNav />}
+        {pathname !== '/login' && <BirdCompanion />}
       </body>
     </html>
   );
