@@ -85,7 +85,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <title>啾 · 儿童 AI 音乐创作</title>
       </head>
-      <body className="bg-[#FFF8F0] max-w-lg mx-auto relative min-h-screen">
+      <body className="bg-[#FFF8F0] w-full max-w-6xl mx-auto relative min-h-screen">
         {showOnboarding && <Onboarding onComplete={() => setShowOnboarding(false)} />}
         {children}
         {pathname !== '/login' && <BottomNav />}
