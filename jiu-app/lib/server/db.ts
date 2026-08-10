@@ -34,7 +34,7 @@ export type MusicTaskPatch = Partial<Pick<MusicTask, 'status' | 'progress' | 'au
 export type CommunityPost = {
   id: string;
   userId: string;
-  author: { id: string; displayName: string };
+  author: { id: string; displayName: string; avatarUrl?: string };
   body: string;
   media: string[];
   music: { title?: string; providerTaskId: string; audioUrl: string | null; lyrics: string | null } | null;
@@ -98,6 +98,10 @@ export async function findSessionRecord(id: string): Promise<StoredSession | nul
 
 export async function findUserRecord(id: string): Promise<AuthUser | null> {
   return createAuthRepository(getD1Database()).findUserRecord(id);
+}
+
+export async function updateUserProfile(userId: string, input: { displayName?: string; avatarUrl?: string | null }): Promise<AuthUser | null> {
+  return createAuthRepository(getD1Database()).updateUserProfile(userId, input);
 }
 
 export async function revokeSessionRecord(id: string): Promise<void> {

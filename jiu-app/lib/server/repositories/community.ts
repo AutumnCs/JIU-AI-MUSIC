@@ -11,6 +11,7 @@ type CommunityPostRow = {
   comment_count: number;
   created_at: string;
   display_name: string | null;
+  avatar_url: string | null;
   liked: number | boolean | null;
   favorited: number | boolean | null;
   hot_score?: number;
@@ -60,7 +61,7 @@ export function createCommunityPostRepository(db: CommunityDatabase): CommunityR
   async function findPost(postId: string, userId: string): Promise<CommunityPost | null> {
     const row = await db.prepare(
       `select p.id, p.user_id, p.body, p.moderation_status, p.like_count,
-        p.favorite_count, p.comment_count, p.created_at, u.display_name,
+        p.favorite_count, p.comment_count, p.created_at, u.display_name, u.avatar_url,
         exists(select 1 from community_post_likes l
           where l.post_id = p.id and l.user_id = ? and l.active = 1) as liked,
         exists(select 1 from community_post_favorites f
@@ -154,7 +155,7 @@ export function createCommunityPostRepository(db: CommunityDatabase): CommunityR
         : 'p.created_at desc, p.id desc';
       const result = await db.prepare(
         `select p.id, p.user_id, p.body, p.moderation_status, p.like_count,
-          p.favorite_count, p.comment_count, p.created_at, u.display_name,
+          p.favorite_count, p.comment_count, p.created_at, u.display_name, u.avatar_url,
           ${scoreSql} as hot_score,
           exists(select 1 from community_post_likes l
             where l.post_id = p.id and l.user_id = ? and l.active = 1) as liked,
@@ -578,7 +579,7 @@ async function hydratePosts(db: CommunityDatabase, rows: CommunityPostRow[]): Pr
     return {
       id: row.id,
       userId: row.user_id,
-      author: { id: row.user_id, displayName: row.display_name ?? '小鸟用户' },
+      author: { id: row.user_id, displayName: row.display_name ?? '小鸟用户', ...(row.avatar_url ? { avatarUrl: row.avatar_url } : {}) },
       body: row.body,
       media: mediaByPost.get(row.id) ?? [],
       music: music ? {

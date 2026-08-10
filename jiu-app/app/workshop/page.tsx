@@ -8,6 +8,7 @@ import { BirdPortrait } from '@/components/collection/BirdPortrait';
 import { BIRDS } from '@/lib/constants';
 import { useGlobalStore } from '@/stores/globalStore';
 import { createWorkshopClient } from '@/lib/workshop/client';
+import { requestSongTitle } from '@/lib/music/title';
 import { requestWorkshopLyrics } from '@/lib/workshop/lyrics';
 import type { WorkshopDraft, WorkshopGenerationResult } from '@/lib/workshop/types';
 
@@ -232,6 +233,11 @@ export default function WorkshopPage() {
         return;
       }
       setGenerationResult(task.result);
+      if (!draft.title.trim()) {
+        void requestSongTitle({ idea: draft.idea, lyrics: task.result.lyrics, genre: draft.genre, mood: draft.mood })
+          .then((title) => setResultTitle(title))
+          .catch(() => undefined);
+      }
       setResultTitle(task.result.title?.trim() || draft.title.trim() || (draft.instrumental ? '会飞的旋律' : '星光小旅行'));
     } catch {
       if (generationRef.current !== generationId) return;

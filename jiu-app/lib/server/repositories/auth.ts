@@ -11,6 +11,7 @@ type UserRow = {
   id: string;
   type: AuthUser['type'];
   display_name: string | null;
+  avatar_url: string | null;
   email: string | null;
   created_at: string;
   updated_at: string;
@@ -55,7 +56,7 @@ export function createAuthRepository(db: D1Database) {
 
     async findUserRecord(id: string): Promise<AuthUser | null> {
       const row = await db.prepare(
-        'select id, type, display_name, email, created_at, updated_at from users where id = ? limit 1',
+        'select id, type, display_name, avatar_url, email, created_at, updated_at from users where id = ? limit 1',
       ).bind(id).first<UserRow>();
       return row ? toAuthUser(row) : null;
     },
@@ -65,6 +66,19 @@ export function createAuthRepository(db: D1Database) {
         'update sessions set revoked_at = ? where id = ? and revoked_at is null',
       ).bind(nowIso(), id).run();
     },
+
+    async updateUserProfile(userId: string, input: { displayName?: string; avatarUrl?: string | null }): Promise<AuthUser | null> {
+      const displayName = input.displayName?.trim();
+      if (displayName !== undefined && (displayName.length < 1 || displayName.length > 24)) {
+        throw new Error('invalid_display_name');
+      }
+      const current = await this.findUserRecord(userId);
+      if (!current) return null;
+      await db.prepare(
+        'update users set display_name = ?, avatar_url = ?, updated_at = ? where id = ?',
+      ).bind(displayName ?? current.displayName ?? null, input.avatarUrl === undefined ? current.avatarUrl ?? null : input.avatarUrl, nowIso(), userId).run();
+      return this.findUserRecord(userId);
+    },
   };
 }
 
@@ -73,6 +87,7 @@ function toAuthUser(row: UserRow): AuthUser {
     id: row.id,
     type: row.type,
     ...(row.display_name ? { displayName: row.display_name } : {}),
+    ...(row.avatar_url ? { avatarUrl: row.avatar_url } : {}),
     ...(row.email ? { email: row.email } : {}),
   };
 }

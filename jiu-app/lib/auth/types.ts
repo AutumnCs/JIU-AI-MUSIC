@@ -4,6 +4,7 @@ export interface AuthUser {
   id: string;
   type: AuthUserType;
   displayName?: string;
+  avatarUrl?: string;
   email?: string;
 }
 

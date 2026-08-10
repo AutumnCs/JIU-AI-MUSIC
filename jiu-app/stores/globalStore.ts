@@ -40,6 +40,7 @@ interface GlobalState {
   hasSeenOnboarding: boolean;
 
   init: (authState: AuthState) => void;
+  setUser: (user: AuthState['user']) => void;
   setCurrentBird: (id: number) => void;
   addFragment: (type: FragmentType, count: number) => void;
   unlockBird: (id: number) => void;
@@ -104,6 +105,14 @@ export const useGlobalStore = create<GlobalState>((set, get) => ({
       hasSeenOnboarding: false,
     });
     persistState(get());
+  },
+
+  setUser: (user) => {
+    set((state) => {
+      const authState = { ...state.authState, user } satisfies AuthState;
+      persistState({ ...state, authState });
+      return { authState };
+    });
   },
 
   setCurrentBird: (id) => {

@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 type Comment = { id: string; userId: string; author: { displayName: string }; parentId: string | null; replyToUserId: string | null; replyToDisplayName?: string; body: string; likeCount: number; liked: boolean; createdAt: string; replies?: Comment[] };
-type Post = { id: string; userId: string; author: { displayName: string }; body: string; media: string[]; music: { title?: string; audioUrl: string | null; providerTaskId: string } | null; likeCount: number; favoriteCount: number; commentCount: number; liked: boolean; favorited: boolean };
+type Post = { id: string; userId: string; author: { displayName: string; avatarUrl?: string }; body: string; media: string[]; music: { title?: string; audioUrl: string | null; providerTaskId: string } | null; likeCount: number; favoriteCount: number; commentCount: number; liked: boolean; favorited: boolean };
 
 export default function CommunityPostPage({ params }: { params: Promise<{ postId: string }> }) {
   const [post, setPost] = useState<Post | null>(null);

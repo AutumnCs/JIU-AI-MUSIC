@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 type Post = {
   id: string;
   userId: string;
-  author: { id: string; displayName: string };
+  author: { id: string; displayName: string; avatarUrl?: string };
   body: string;
   media: string[];
   music: { title?: string; providerTaskId: string; audioUrl: string | null } | null;
@@ -87,10 +87,10 @@ export default function CommunityPage() {
     }
   };
 
-  return <main className="min-h-screen bg-[#FFF8F0] pb-28">
-    <header className="sticky top-0 z-20 border-b border-orange-100 bg-[#FFF8F0]/95 px-4 py-3 backdrop-blur">
-      <h1 className="text-center text-xl font-black text-[#352B25]">啾啾社区</h1>
-      <div className="mx-auto mt-3 flex max-w-xs rounded-2xl bg-white p-1 shadow-sm">
+  return <main className="jiu-page">
+    <header className="jiu-header flex items-center justify-between">
+      <div><p className="text-[10px] font-bold tracking-[0.18em] text-[#A77950]">JIU COMMUNITY</p><h1 className="mt-1 text-[22px] font-black tracking-tight text-[#263746]">啾啾社区</h1></div>
+      <div className="flex max-w-[13rem] rounded-2xl bg-white/80 p-1 shadow-sm">
         {(['latest', 'hot'] as const).map((item) => <button key={item} type="button" onClick={() => setSort(item)} className={`min-h-10 flex-1 rounded-xl text-sm font-black ${sort === item ? 'bg-[#FF9F43] text-white' : 'text-[#8A7666]'}`}>{item === 'latest' ? '最新' : '热门'}</button>)}
       </div>
     </header>
@@ -108,7 +108,7 @@ export default function CommunityPage() {
 function PostCard({ post, onToggle }: { post: Post; onToggle: (post: Post, kind: 'like' | 'favorite') => void }) {
   const [expanded, setExpanded] = useState(false);
   return <article className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-[#F2E5D9]">
-    <div className="flex items-center gap-3"><Link href={`/me?userId=${encodeURIComponent(post.userId)}`} className="flex h-10 w-10 items-center justify-center rounded-full bg-[#DFF3EF] text-xl">🐦</Link><div><p className="font-black text-[#4A3B32]">{post.author.displayName}</p><p className="text-xs text-[#A49488]">{relativeTime(post.createdAt)}</p></div></div>
+    <div className="flex items-center gap-3"><Link href={`/me?userId=${encodeURIComponent(post.userId)}`} className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-[#DFF3EF] text-xl">{post.author.avatarUrl ? <img src={post.author.avatarUrl} alt="发布者头像" className="h-full w-full object-cover" /> : '🐦'}</Link><div><p className="font-black text-[#4A3B32]">{post.author.displayName}</p><p className="text-xs text-[#A49488]">{relativeTime(post.createdAt)}</p></div></div>
     {post.body && <div className="mt-3"><p className={`whitespace-pre-wrap text-sm leading-7 text-[#5C4D42] ${expanded ? '' : 'line-clamp-3'}`}>{post.body}</p>{post.body.split('\n').join('').length > 90 && <button type="button" onClick={() => setExpanded((value) => !value)} className="mt-1 text-xs font-black text-[#C87835]">{expanded ? '收起' : '展开'}</button>}</div>}
     {post.media.length > 0 && <div className="mt-3 grid grid-cols-3 gap-2">{post.media.map((url) => <img key={url} src={url} alt="帖子图片" className="aspect-square w-full rounded-xl object-cover" />)}</div>}
     {post.music && <div className="mt-3 rounded-2xl bg-[#FFF5E8] p-3"><p className="mb-2 text-sm font-black text-[#8A542B]">{post.music.title ?? '我的 AI 音乐作品'}</p><audio controls preload="none" className="w-full" src={post.music.audioUrl ?? `/api/music/audio/${post.music.providerTaskId}`} /></div>}
