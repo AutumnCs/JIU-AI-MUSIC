@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     const code = error instanceof Error ? error.message : 'register_failed';
+    console.error('[auth/register]', code.slice(0, 160));
     if (code === 'invalid_email') return NextResponse.json({ error: code, message: '请输入正确的邮箱地址' }, { status: 400 });
     if (code === 'invalid_password') return NextResponse.json({ error: code, message: '密码需要为 8-72 位' }, { status: 400 });
     if (code === 'invalid_display_name') return NextResponse.json({ error: code, message: '昵称需要为 1-24 个字符' }, { status: 400 });
