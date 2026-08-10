@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { ArkLyricsProvider } from './ark-provider.ts';
-import { generateLyrics } from './provider.ts';
+import { generateLyrics, LyricsValidationError } from './provider.ts';
 import { TemplateLyricsProvider } from './template-provider.ts';
 
 test('rejects invalid modes and input bounds before invoking a provider', async () => {
@@ -17,19 +17,19 @@ test('rejects invalid modes and input bounds before invoking a provider', async 
 
   await assert.rejects(
     () => generateLyrics({ mode: 'rewrite', theme: 'morning' } as never, { ARK_API_KEY: 'test-key' }, { arkProvider: provider }),
-    { name: 'LyricsInputError' },
+    LyricsValidationError,
   );
   await assert.rejects(
     () => generateLyrics({ mode: 'write', theme: 'x'.repeat(201) }, { ARK_API_KEY: 'test-key' }, { arkProvider: provider }),
-    { name: 'LyricsInputError' },
+    LyricsValidationError,
   );
   await assert.rejects(
     () => generateLyrics({ mode: 'continue', theme: 'morning', lyrics: '   ' }, { ARK_API_KEY: 'test-key' }, { arkProvider: provider }),
-    { name: 'LyricsInputError' },
+    LyricsValidationError,
   );
   await assert.rejects(
     () => generateLyrics({ mode: 'continue', theme: 'morning', lyrics: 'x'.repeat(1201) }, { ARK_API_KEY: 'test-key' }, { arkProvider: provider }),
-    { name: 'LyricsInputError' },
+    LyricsValidationError,
   );
 
   assert.equal(called, false);
@@ -76,14 +76,27 @@ test('falls back to the deterministic child-safe template when Ark fails', async
 });
 
 test('selects the template directly when Ark credentials are unavailable', async () => {
+  const unsafeTheme = 'unsafe-theme-should-not-appear';
+  const unsafeLyrics = 'unsafe-lyrics-should-not-appear';
   const result = await generateLyrics(
-    { mode: 'continue', theme: 'night sky', lyrics: '[Verse]\nStars glow' },
+    { mode: 'continue', theme: unsafeTheme, lyrics: unsafeLyrics },
     {},
     { arkProvider: { name: 'ark', generate: async () => { throw new Error('must not call Ark'); } } },
   );
 
   assert.equal(result.provider, 'template');
-  assert.match(result.lyrics, /Stars glow/);
+  assert.match(result.lyrics, /^\[Verse\]/);
+  assert.match(result.lyrics, /\[Chorus\]/);
+  assert.doesNotMatch(result.lyrics, new RegExp(`${unsafeTheme}|${unsafeLyrics}`));
+});
+
+test('template output never echoes raw write input', async () => {
+  const theme = 'unsafe-write-theme-should-not-appear';
+  const result = await new TemplateLyricsProvider().generate({ mode: 'write', theme });
+
+  assert.match(result, /^\[Verse\]/);
+  assert.match(result, /\[Chorus\]/);
+  assert.doesNotMatch(result, new RegExp(theme));
 });
 
 test('sanitizes Ark failures and captures no more than 20 KB of upstream diagnostics', async () => {

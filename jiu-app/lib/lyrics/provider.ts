@@ -2,10 +2,10 @@ import { ArkLyricsProvider } from './ark-provider.ts';
 import { TemplateLyricsProvider } from './template-provider.ts';
 import type { LyricsGenerateInput, LyricsGeneration, LyricsProvider } from './types.ts';
 
-export class LyricsInputError extends Error {
+export class LyricsValidationError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'LyricsInputError';
+    this.name = 'LyricsValidationError';
   }
 }
 
@@ -36,19 +36,19 @@ export async function generateLyrics(
 
 export function validateLyricsInput(input: LyricsGenerateInput): LyricsGenerateInput {
   if (!input || (input.mode !== 'write' && input.mode !== 'continue')) {
-    throw new LyricsInputError('Invalid lyrics mode');
+    throw new LyricsValidationError('Invalid lyrics mode');
   }
-  if (input.theme !== undefined && typeof input.theme !== 'string') throw new LyricsInputError('Invalid lyrics theme');
-  if (input.lyrics !== undefined && typeof input.lyrics !== 'string') throw new LyricsInputError('Invalid existing lyrics');
-  if (input.genre !== undefined && typeof input.genre !== 'string') throw new LyricsInputError('Invalid genre');
-  if (input.mood !== undefined && typeof input.mood !== 'string') throw new LyricsInputError('Invalid mood');
+  if (input.theme !== undefined && typeof input.theme !== 'string') throw new LyricsValidationError('Invalid lyrics theme');
+  if (input.lyrics !== undefined && typeof input.lyrics !== 'string') throw new LyricsValidationError('Invalid existing lyrics');
+  if (input.genre !== undefined && typeof input.genre !== 'string') throw new LyricsValidationError('Invalid genre');
+  if (input.mood !== undefined && typeof input.mood !== 'string') throw new LyricsValidationError('Invalid mood');
 
   const theme = input.theme?.trim();
   const lyrics = input.lyrics?.trim();
-  if (theme && Array.from(theme).length > 200) throw new LyricsInputError('Lyrics theme is too long');
-  if (lyrics && Array.from(lyrics).length > 1200) throw new LyricsInputError('Existing lyrics are too long');
-  if (input.mode === 'write' && !theme) throw new LyricsInputError('Lyrics theme is required');
-  if (input.mode === 'continue' && !lyrics) throw new LyricsInputError('Existing lyrics are required');
+  if (theme && Array.from(theme).length > 200) throw new LyricsValidationError('Lyrics theme is too long');
+  if (lyrics && Array.from(lyrics).length > 1200) throw new LyricsValidationError('Existing lyrics are too long');
+  if (input.mode === 'write' && !theme) throw new LyricsValidationError('Lyrics theme is required');
+  if (input.mode === 'continue' && !lyrics) throw new LyricsValidationError('Existing lyrics are required');
 
   return { ...input, ...(theme ? { theme } : {}), ...(lyrics ? { lyrics } : {}) };
 }

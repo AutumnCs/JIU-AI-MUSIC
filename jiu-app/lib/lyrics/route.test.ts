@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { LyricsValidationError } from './provider.ts';
 import { createLyricsPostHandler } from './route.ts';
 
 test('authenticates before parsing a request body or invoking a lyrics provider', async () => {
@@ -75,16 +76,34 @@ test('returns generated lyrics and its selected provider', async () => {
   });
 });
 
-test('does not expose provider failures to the client', async () => {
+test('returns a sanitized generation_failed response for provider failures', async () => {
+  const unsafeInput = 'unsafe-input-should-not-appear';
   const handler = createLyricsPostHandler({
     getCurrentUser: async () => ({ user: { id: 'user-1' } }),
-    generateLyrics: async () => { throw new Error('upstream body contains ARK_API_KEY=secret'); },
+    generateLyrics: async () => { throw new Error(`upstream body contains ${unsafeInput}`); },
     runtimeEnv: () => ({ ARK_API_KEY: 'server-only-key' }),
   });
 
   const response = await handler(new Request('https://example.test/api/lyrics/generate', {
     method: 'POST',
-    body: JSON.stringify({ mode: 'write', theme: 'hello' }),
+    body: JSON.stringify({ mode: 'write', theme: unsafeInput }),
+  }));
+
+  assert.equal(response.status, 502);
+  assert.deepEqual(await response.json(), { error: 'generation_failed' });
+});
+
+test('returns bad_request only for LyricsValidationError without echoing unsafe input', async () => {
+  const unsafeInput = 'unsafe-input-should-not-appear';
+  const handler = createLyricsPostHandler({
+    getCurrentUser: async () => ({ user: { id: 'user-1' } }),
+    generateLyrics: async () => { throw new LyricsValidationError(`Invalid lyrics: ${unsafeInput}`); },
+    runtimeEnv: () => ({}),
+  });
+
+  const response = await handler(new Request('https://example.test/api/lyrics/generate', {
+    method: 'POST',
+    body: JSON.stringify({ mode: 'write', theme: unsafeInput }),
   }));
 
   assert.equal(response.status, 400);

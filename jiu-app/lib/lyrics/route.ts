@@ -1,4 +1,4 @@
-import { generateLyrics as generateLyricsFromProvider, validateLyricsInput } from './provider.ts';
+import { generateLyrics as generateLyricsFromProvider, LyricsValidationError, validateLyricsInput } from './provider.ts';
 import type { LyricsGenerateInput, LyricsGeneration } from './types.ts';
 
 type CurrentUser = { id: string };
@@ -19,14 +19,20 @@ export function createLyricsPostHandler(dependencies: LyricsPostHandlerDependenc
     try {
       body = await request.json() as LyricsGenerateInput;
       body = validateLyricsInput(body);
-    } catch {
-      return Response.json({ error: 'bad_request' }, { status: 400 });
+    } catch (error) {
+      if (error instanceof LyricsValidationError) {
+        return Response.json({ error: 'bad_request' }, { status: 400 });
+      }
+      return Response.json({ error: 'generation_failed' }, { status: 502 });
     }
 
     try {
       return Response.json(await dependencies.generateLyrics(body, dependencies.runtimeEnv()));
-    } catch {
-      return Response.json({ error: 'bad_request' }, { status: 400 });
+    } catch (error) {
+      if (error instanceof LyricsValidationError) {
+        return Response.json({ error: 'bad_request' }, { status: 400 });
+      }
+      return Response.json({ error: 'generation_failed' }, { status: 502 });
     }
   };
 }
