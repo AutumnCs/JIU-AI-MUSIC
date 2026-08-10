@@ -3,6 +3,7 @@ node_modules/
 .next/
 .open-next/
 .wrangler/
+.wrangler-log/
 out/
 dist/
 build/

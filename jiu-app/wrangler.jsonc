@@ -7,10 +7,12 @@
 		"nodejs_compat",
 		"global_fetch_strictly_public"
 	],
-	"hyperdrive": [
+	"d1_databases": [
 		{
-			"binding": "HYPERDRIVE",
-			"id": "534bac4c3e6b4d73998f571fe804d486"
+			"binding": "DB",
+			"database_name": "jiu-music-db",
+			"database_id": "89848116-339f-4b1b-aa3e-19d0ae018a41",
+			"migrations_dir": "migrations"
 		}
 	],
 	"assets": {
@@ -21,11 +23,6 @@
 		{
 			"binding": "MUSIC_BUCKET",
 			"bucket_name": "jiu-music-audio"
-		},
-		{
-			"bucket_name": "jiu-music-audio",
-			"binding": "jiu_music_audio",
-			"remote": true
 		}
 	],
 	"services": [
