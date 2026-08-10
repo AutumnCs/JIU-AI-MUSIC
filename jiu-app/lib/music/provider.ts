@@ -43,6 +43,9 @@ type CreateTaskRecord = (input: {
   requestPayload: Record<string, unknown>;
 }) => Promise<unknown>;
 
+const SERVER_PROVIDER_MARKER = '__serverProvider';
+const SERVER_PROVIDER_MARKER_VERSION = 1;
+
 export type CreatePostHandlerDependencies = {
   getCurrentUser: (request: Request) => Promise<{ user: CurrentUser | null }>;
   selectProvider: () => MusicProvider;
@@ -108,7 +111,12 @@ export function createPostHandler(dependencies: CreatePostHandlerDependencies) {
         userId: auth.user.id,
         providerTaskId: created.taskId,
         track: input.track,
-        requestPayload: { ...body, track: input.track, provider: provider.name },
+        requestPayload: {
+          ...body,
+          track: input.track,
+          provider: provider.name,
+          [SERVER_PROVIDER_MARKER]: { name: provider.name, version: SERVER_PROVIDER_MARKER_VERSION },
+        },
       });
       return Response.json({ taskId: created.taskId, predictedWaitTime: created.predictedWaitTime, track: input.track });
     } catch (error) {
@@ -135,6 +143,7 @@ export function createGetHandler(dependencies: StatusGetHandlerDependencies) {
 
     try {
       const result = await dependencies.selectProvider(providerName).getTask(taskId);
+      if (result.taskId !== task.providerTaskId) throw new MusicProviderError('invalid_provider_response', 'Provider returned a mismatched music task ID');
       const patch = await toStatusPatch(result, task, dependencies.persistAudio);
       const updated = await dependencies.updateTask(taskId, auth.user.id, patch);
       return Response.json(updated ? toResponse(updated) : toResponse({ ...task, ...patch }));
@@ -173,7 +182,7 @@ async function toStatusPatch(
 ): Promise<MusicTaskPatch> {
   let audioUrl = result.audioUrl ?? task.audioUrl;
   if (result.status === 'success' && result.audioUrl) {
-    audioUrl = (await persistAudio(result.audioUrl, result.taskId)).url;
+    audioUrl = (await persistAudio(result.audioUrl, task.providerTaskId)).url;
   }
   return {
     status: result.status,
@@ -186,8 +195,9 @@ async function toStatusPatch(
 }
 
 function readStoredProviderName(payload: Record<string, unknown>): MusicProviderName | null {
-  const provider = payload.provider;
-  return provider === 'volcengine' || provider === 'mock' ? provider : null;
+  const marker = payload[SERVER_PROVIDER_MARKER];
+  if (!isRecord(marker) || marker.version !== SERVER_PROVIDER_MARKER_VERSION) return 'volcengine';
+  return marker.name === 'volcengine' || marker.name === 'mock' ? marker.name : 'volcengine';
 }
 
 function toResponse(task: StoredMusicTask) {
@@ -252,3 +262,7 @@ function validateText(value: string, label: string) {
 }
 
 class InputError extends Error {}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}

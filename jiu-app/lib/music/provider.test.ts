@@ -208,6 +208,7 @@ test('create persists the selected provider name without dropping request fields
       text: 'gentle piano melody',
       duration: 30,
       provider: 'mock',
+      __serverProvider: { name: 'mock', version: 1 },
     },
   });
   assert.deepEqual(await response.json(), {
@@ -247,7 +248,7 @@ test('status uses the stored provider and persists normalized state with explici
     userId: 'user-1',
     providerTaskId: 'mock-task-1',
     track: 'vocal' as const,
-    requestPayload: { prompt: 'forest song', provider: 'mock' },
+    requestPayload: { prompt: 'forest song', provider: 'mock', __serverProvider: { name: 'mock', version: 1 } },
     status: 'running' as const,
     progress: 30,
     audioUrl: null,
@@ -304,4 +305,98 @@ test('status uses the stored provider and persists normalized state with explici
     lyrics: 'new lyrics',
     failureReason: null,
   });
+});
+
+test('status uses Volcengine for historical tasks without server provenance', async () => {
+  let selectedName: unknown;
+  const handler = createGetHandler({
+    getCurrentUser: async () => ({ user: { id: 'user-1', type: 'guest' as const } }),
+    findTask: async () => ({
+      providerTaskId: 'legacy-task-1',
+      track: 'vocal',
+      requestPayload: { provider: 'mock' },
+      status: 'running',
+      progress: 30,
+      audioUrl: null,
+      lyrics: null,
+      failureCode: null,
+      failureMessage: null,
+    }),
+    selectProvider: (name) => {
+      selectedName = name;
+      return { name, createTask: async () => { throw new Error('not used'); }, getTask: async () => ({
+        taskId: 'legacy-task-1', status: 'running' as const, progress: 40, audioUrl: undefined, lyrics: undefined, failureReason: null,
+      }) };
+    },
+    updateTask: async () => null,
+    persistAudio: async () => { throw new Error('audio must not be persisted'); },
+  });
+
+  await handler(new Request('https://example.test/api/music/status/legacy-task-1'), { params: Promise.resolve({ taskId: 'legacy-task-1' }) });
+
+  assert.equal(selectedName, 'volcengine');
+});
+
+test('status ignores a forged legacy provider when server provenance is valid', async () => {
+  let selectedName: unknown;
+  const handler = createGetHandler({
+    getCurrentUser: async () => ({ user: { id: 'user-1', type: 'guest' as const } }),
+    findTask: async () => ({
+      providerTaskId: 'marked-task-1',
+      track: 'vocal',
+      requestPayload: { provider: 'volcengine', __serverProvider: { name: 'mock', version: 1 } },
+      status: 'running',
+      progress: 30,
+      audioUrl: null,
+      lyrics: null,
+      failureCode: null,
+      failureMessage: null,
+    }),
+    selectProvider: (name) => {
+      selectedName = name;
+      return { name, createTask: async () => { throw new Error('not used'); }, getTask: async () => ({
+        taskId: 'marked-task-1', status: 'running' as const, progress: 40, audioUrl: undefined, lyrics: undefined, failureReason: null,
+      }) };
+    },
+    updateTask: async () => null,
+    persistAudio: async () => { throw new Error('audio must not be persisted'); },
+  });
+
+  await handler(new Request('https://example.test/api/music/status/marked-task-1'), { params: Promise.resolve({ taskId: 'marked-task-1' }) });
+
+  assert.equal(selectedName, 'mock');
+});
+
+test('status rejects a mismatched provider task ID before R2 or D1 writes', async () => {
+  let audioWrites = 0;
+  let d1Writes = 0;
+  const handler = createGetHandler({
+    getCurrentUser: async () => ({ user: { id: 'user-1', type: 'guest' as const } }),
+    findTask: async () => ({
+      providerTaskId: 'marked-task-2',
+      track: 'vocal',
+      requestPayload: { __serverProvider: { name: 'mock', version: 1 } },
+      status: 'running',
+      progress: 30,
+      audioUrl: null,
+      lyrics: null,
+      failureCode: null,
+      failureMessage: null,
+    }),
+    selectProvider: () => ({
+      name: 'mock',
+      createTask: async () => { throw new Error('not used'); },
+      getTask: async () => ({
+        taskId: 'other-task-2', status: 'success' as const, progress: 100, audioUrl: 'https://provider.test/song.wav', lyrics: 'lyrics', failureReason: null,
+      }),
+    }),
+    updateTask: async () => { d1Writes += 1; return null; },
+    persistAudio: async () => { audioWrites += 1; return { url: '/api/music/audio/marked-task-2', persisted: true }; },
+  });
+
+  const response = await handler(new Request('https://example.test/api/music/status/marked-task-2'), { params: Promise.resolve({ taskId: 'marked-task-2' }) });
+
+  assert.equal(response.status, 502);
+  assert.equal(audioWrites, 0);
+  assert.equal(d1Writes, 0);
 });
