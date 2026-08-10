@@ -37,7 +37,7 @@ export type CommunityPost = {
   author: { id: string; displayName: string };
   body: string;
   media: string[];
-  music: { providerTaskId: string; audioUrl: string | null; lyrics: string | null } | null;
+  music: { title?: string; providerTaskId: string; audioUrl: string | null; lyrics: string | null } | null;
   likeCount: number;
   favoriteCount: number;
   commentCount: number;
@@ -54,6 +54,7 @@ export type CommunityComment = {
   author: { id: string; displayName: string };
   parentId: string | null;
   replyToUserId: string | null;
+  replyToDisplayName?: string;
   body: string;
   likeCount: number;
   liked: boolean;

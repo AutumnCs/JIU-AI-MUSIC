@@ -7,6 +7,8 @@ test('validatePostInput requires text, media, or music and caps media', () => {
   assert.equal(validatePostInput({ body: '', media: [], providerTaskId: null }).ok, false);
   assert.equal(validatePostInput({ body: '', media: ['https://example.test/a.png'], providerTaskId: null }).ok, true);
   assert.equal(validatePostInput({ body: 'hello', media: Array.from({ length: 10 }, (_, i) => `https://x/${i}`), providerTaskId: null }).ok, false);
+  assert.equal(validatePostInput({ body: '', media: ['/api/community/media/image.png'], providerTaskId: null }).ok, true);
+  assert.equal(validatePostInput({ body: '', media: ['/uploads/image.png'], providerTaskId: null }).ok, false);
 });
 
 test('buildCommentTree nests replies under root comments', () => {

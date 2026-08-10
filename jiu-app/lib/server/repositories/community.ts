@@ -1,5 +1,5 @@
 import type { CommunityComment, CommunityPost, CommunityRepository } from '../db.ts';
-import { fromSqlBool, nowIso } from '../d1.ts';
+import { fromSqlBool, nowIso, parseJsonRecord } from '../d1.ts';
 
 type CommunityPostRow = {
   id: string;
@@ -26,6 +26,7 @@ type CommunityPostMusicRow = {
   provider_task_id: string;
   audio_url: string | null;
   lyrics: string | null;
+  request_payload: string;
 };
 
 type CommunityCommentRow = {
@@ -35,6 +36,7 @@ type CommunityCommentRow = {
   display_name: string | null;
   parent_id: string | null;
   reply_to_user_id: string | null;
+  reply_to_display_name: string | null;
   body: string;
   like_count: number;
   liked: number | boolean | null;
@@ -240,11 +242,13 @@ export function createCommunityPostRepository(db: CommunityDatabase): CommunityR
     async listComments(postId: string, userId: string): Promise<CommunityComment[]> {
       const result = await db.prepare(
         `select c.id, c.post_id, c.user_id, u.display_name, c.parent_id,
-          c.reply_to_user_id, c.body, c.like_count, c.created_at,
+          c.reply_to_user_id, reply_user.display_name as reply_to_display_name,
+          c.body, c.like_count, c.created_at,
           exists(select 1 from community_comment_likes l
             where l.comment_id = c.id and l.user_id = ? and l.active = 1) as liked
           from community_comments c
           join users u on u.id = c.user_id
+          left join users reply_user on reply_user.id = c.reply_to_user_id
           where c.post_id = ? and c.status = ? and c.moderation_status = ?
           order by c.created_at asc, c.rowid asc`,
       ).bind(userId, postId, 'published', 'approved').all<CommunityCommentRow>();
@@ -427,11 +431,13 @@ async function findComment(
 ): Promise<CommunityComment | null> {
   const row = await db.prepare(
     `select c.id, c.post_id, c.user_id, u.display_name, c.parent_id,
-      c.reply_to_user_id, c.body, c.like_count, c.created_at,
+      c.reply_to_user_id, reply_user.display_name as reply_to_display_name,
+      c.body, c.like_count, c.created_at,
       exists(select 1 from community_comment_likes l
         where l.comment_id = c.id and l.user_id = ? and l.active = 1) as liked
       from community_comments c
       join users u on u.id = c.user_id
+      left join users reply_user on reply_user.id = c.reply_to_user_id
       where c.id = ? and c.status = ? and c.moderation_status = ?
       limit 1`,
   ).bind(userId, commentId, 'published', 'approved').first<CommunityCommentRow>();
@@ -446,6 +452,7 @@ function toCommunityComment(row: CommunityCommentRow): CommunityComment {
     author: { id: row.user_id, displayName: row.display_name ?? '\u5c0f\u9e1f\u7528\u6237' },
     parentId: row.parent_id,
     replyToUserId: row.reply_to_user_id,
+    ...(row.reply_to_display_name ? { replyToDisplayName: row.reply_to_display_name } : {}),
     body: row.body,
     likeCount: Number(row.like_count),
     liked: fromSqlBool(row.liked),
@@ -548,7 +555,7 @@ async function hydratePosts(db: CommunityDatabase, rows: CommunityPostRow[]): Pr
         order by post_id asc, sort_order asc, id asc`,
     ).bind(...postIds),
     db.prepare(
-      `select m.post_id, m.provider_task_id, t.audio_url, t.lyrics
+      `select m.post_id, m.provider_task_id, t.audio_url, t.lyrics, t.request_payload
         from community_post_music m
         join music_tasks t
           on t.provider_task_id = m.provider_task_id and t.user_id = m.user_id
@@ -575,6 +582,7 @@ async function hydratePosts(db: CommunityDatabase, rows: CommunityPostRow[]): Pr
       body: row.body,
       media: mediaByPost.get(row.id) ?? [],
       music: music ? {
+        title: titleFromMusicRequest(music.request_payload),
         providerTaskId: music.provider_task_id,
         audioUrl: music.audio_url,
         lyrics: music.lyrics,
@@ -588,4 +596,10 @@ async function hydratePosts(db: CommunityDatabase, rows: CommunityPostRow[]): Pr
       moderationStatus: row.moderation_status,
     };
   });
+}
+
+function titleFromMusicRequest(requestPayload: string): string | undefined {
+  const payload = parseJsonRecord(requestPayload);
+  const title = [payload.title, payload.prompt, payload.text].find((value): value is string => typeof value === 'string' && value.trim().length > 0);
+  return title?.trim();
 }
