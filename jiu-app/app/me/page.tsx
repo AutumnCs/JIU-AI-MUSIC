@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
-import type { AuthState, AuthUser } from '@/lib/auth/types';
+import type { AuthUser } from '@/lib/auth/types';
 import { useGlobalStore } from '@/stores/globalStore';
 
 type Work = { id: string; taskId: string; title: string; audio: string; genre: string; mood: string; createdAt: string };
@@ -71,11 +71,8 @@ export default function MePage() {
     setError('');
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      const guestResponse = await fetch('/api/auth/guest', { method: 'POST' });
-      const guestPayload = await guestResponse.json() as { user?: AuthUser; session?: AuthState['session'] };
-      if (!guestResponse.ok || !guestPayload.user) throw new Error('退出后游客模式初始化失败');
-      setAuthState({ user: guestPayload.user, session: guestPayload.session ?? null, source: 'server' });
-      router.replace('/me');
+      setAuthState({ user: null, session: null, source: 'server' });
+      router.replace('/login?next=/me');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '退出登录失败');
     } finally {

@@ -51,6 +51,22 @@ export default function LoginPage() {
     }
   }
 
+  async function continueAsGuest() {
+    setError('');
+    setSubmitting(true);
+    try {
+      const response = await fetch('/api/auth/guest', { method: 'POST' });
+      const payload = await response.json() as { user?: AuthState['user']; session?: AuthState['session'] };
+      if (!response.ok || !payload.user) throw new Error('游客模式暂时不可用');
+      setAuthState({ user: payload.user, session: payload.session ?? null, source: 'server' });
+      router.replace(nextPath);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '游客模式暂时不可用');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <main className={styles.page}>
       <div className={styles.shell}>
@@ -74,7 +90,7 @@ export default function LoginPage() {
           </form>
 
           <button className={styles.secondary} type="button" onClick={() => { setMode((value) => value === 'login' ? 'register' : 'login'); setError(''); }}>{mode === 'login' ? '还没有账号？注册一个' : '已经有账号？直接登录'}</button>
-          <button className={styles.secondary} type="button" onClick={() => router.replace(nextPath)}>先用游客模式体验</button>
+          <button className={styles.secondary} type="button" disabled={submitting} onClick={() => void continueAsGuest()}>先用游客模式体验</button>
           <p className={styles.hint}>第一版暂不需要邮箱验证码，邮箱只用于识别你的账号。</p>
         </section>
       </div>
