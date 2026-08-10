@@ -8,6 +8,7 @@ import { BirdPortrait } from '@/components/collection/BirdPortrait';
 import { BIRDS } from '@/lib/constants';
 import { useGlobalStore } from '@/stores/globalStore';
 import { createWorkshopClient } from '@/lib/workshop/client';
+import { requestWorkshopLyrics } from '@/lib/workshop/lyrics';
 import type { WorkshopDraft, WorkshopGenerationResult } from '@/lib/workshop/types';
 
 type WorkshopView = 'create' | 'generating' | 'result';
@@ -104,6 +105,7 @@ export default function WorkshopPage() {
   const [toast, setToast] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const generationRef = useRef(0);
+  const lyricsRequestRef = useRef(0);
 
   useEffect(() => {
     setDraftReady(false);
@@ -148,23 +150,37 @@ export default function WorkshopPage() {
     setDraft((current) => ({ ...current, idea, lyrics: '' }));
   };
 
-  const createLyrics = () => {
+  const createLyrics = async () => {
     if (!draft.idea.trim()) {
       setToast('先告诉小鸟你想唱什么吧');
       return;
     }
-    updateDraft('lyrics', buildLyrics(draft.idea));
+    const requestId = ++lyricsRequestRef.current;
+    const lyrics = await requestWorkshopLyrics(
+      { mode: 'write', theme: draft.idea, genre: draft.genre, mood: draft.mood },
+      () => buildLyrics(draft.idea),
+    );
+    if (requestId !== lyricsRequestRef.current) return;
+    updateDraft('lyrics', lyrics);
     setToast('歌词写好啦，你还可以继续修改');
   };
 
-  const continueLyrics = () => {
+  const continueLyrics = async () => {
     if (!draft.lyrics.trim()) {
       setToast('先写下一两句，小鸟才能接着写');
       return;
     }
+    const requestId = ++lyricsRequestRef.current;
+    const existingLyrics = draft.lyrics.trim();
+    const fallbackLyrics = `${existingLyrics}\n\n【新的段落】\n云朵把歌声轻轻收藏\n明天醒来又是晴朗`;
+    const lyrics = await requestWorkshopLyrics(
+      { mode: 'continue', theme: draft.idea || undefined, lyrics: existingLyrics, genre: draft.genre, mood: draft.mood },
+      () => fallbackLyrics,
+    );
+    if (requestId !== lyricsRequestRef.current) return;
     updateDraft(
       'lyrics',
-      `${draft.lyrics.trim()}\n\n【新的段落】\n云朵把歌声轻轻收藏\n明天醒来又是晴朗`,
+      lyrics,
     );
     setToast('小鸟接着写了四句');
   };
