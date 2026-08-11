@@ -85,16 +85,22 @@ export default function CollectionPage() {
     const syncActiveCategory = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        const anchor = (categoryNavRef.current?.getBoundingClientRect().bottom ?? 0) + 12;
+        const anchor = categoryNavRef.current?.getBoundingClientRect().bottom ?? 0;
         let visibleCategory: (typeof CATEGORIES)[number] = CATEGORIES[0];
+        let largestVisibleArea = 0;
 
         for (const category of CATEGORIES) {
           const section = categoryRefs.current[category];
           if (!section) continue;
           const bounds = section.getBoundingClientRect();
-          // Use the last section whose top crossed the anchor. Requiring the
-          // bottom to remain below it breaks on the final section at max scroll.
-          if (bounds.top <= anchor) visibleCategory = category;
+          const visibleArea = Math.max(
+            0,
+            Math.min(bounds.bottom, window.innerHeight) - Math.max(bounds.top, anchor),
+          );
+          if (visibleArea > largestVisibleArea) {
+            largestVisibleArea = visibleArea;
+            visibleCategory = category;
+          }
         }
 
         setActiveCategory((current) => current === visibleCategory ? current : visibleCategory);
@@ -133,6 +139,23 @@ export default function CollectionPage() {
           </div>
         )}
       />
+
+      <nav ref={categoryNavRef} className={styles.categoryNav} aria-label="鸟类分类">
+        {CATEGORIES.map((category) => (
+          <button
+            key={category}
+            type="button"
+            onClick={() => jumpToCategory(category)}
+            className={`min-h-10 whitespace-nowrap rounded-full px-4 text-xs font-extrabold transition ${
+              activeCategory === category
+                ? 'bg-[#2C3E50] text-white shadow-md'
+                : 'bg-white/80 text-[#75685D]'
+            }`}
+          >
+            {CATEGORY_LABELS[category]}
+          </button>
+        ))}
+      </nav>
 
       <section className={styles.hero} aria-label="当前音乐伙伴">
         <div className={styles.heroGlowOne} />
@@ -199,23 +222,6 @@ export default function CollectionPage() {
           })}
         </button>
       </section>
-
-      <nav ref={categoryNavRef} className={styles.categoryNav} aria-label="鸟类分类">
-        {CATEGORIES.map((category) => (
-          <button
-            key={category}
-            type="button"
-            onClick={() => jumpToCategory(category)}
-            className={`min-h-10 whitespace-nowrap rounded-full px-4 text-xs font-extrabold transition ${
-              activeCategory === category
-                ? 'bg-[#2C3E50] text-white shadow-md'
-                : 'bg-white/80 text-[#75685D]'
-            }`}
-          >
-            {CATEGORY_LABELS[category]}
-          </button>
-        ))}
-      </nav>
 
       <div className="space-y-4 px-3 pb-10">
         {CATEGORIES.map((category) => {
