@@ -12,9 +12,10 @@ export async function GET(request: NextRequest) {
 
   const url = new URL(request.url);
   const sort = url.searchParams.get('sort') === 'hot' ? 'hot' : 'latest';
+  const mine = url.searchParams.get('mine') === '1';
   const cursor = url.searchParams.get('cursor') ?? undefined;
   const limit = Number(url.searchParams.get('limit') ?? 12);
-  const result = await getCommunityRepository().listPosts({ userId: auth.user.id, sort, cursor, limit });
+  const result = await getCommunityRepository().listPosts({ userId: auth.user.id, authorId: mine ? auth.user.id : undefined, sort, cursor, limit });
   return NextResponse.json({ ...result, sort });
 }
 

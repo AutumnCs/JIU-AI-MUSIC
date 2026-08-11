@@ -14,3 +14,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const comments = await repository.listComments(postId, auth.user.id);
   return NextResponse.json({ post, comments });
 }
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ postId: string }> }) {
+  const auth = await getCurrentUserFromRequest(request);
+  if (!auth.user) return NextResponse.json({ error: 'unauthorized', message: '请先创建游客身份' }, { status: 401 });
+  const { postId } = await params;
+  const deleted = await getCommunityRepository().deletePost(postId, auth.user.id);
+  if (!deleted) return NextResponse.json({ error: 'forbidden', message: '只能删除自己发布的帖子' }, { status: 403 });
+  return NextResponse.json({ deleted: true });
+}

@@ -126,8 +126,18 @@ export function createCommunityPostRepository(db: CommunityDatabase): CommunityR
       return post;
     },
 
+    async deletePost(postId: string, userId: string): Promise<boolean> {
+      const result = await db.prepare(
+        `update community_posts
+          set status = ?, updated_at = ?
+          where id = ? and user_id = ? and status = ?`,
+      ).bind('deleted', nowIso(), postId, userId, 'published').run();
+      return result.meta.changes === 1;
+    },
+
     async listPosts(input: {
       userId: string;
+      authorId?: string;
       sort: 'latest' | 'hot';
       cursor?: string;
       limit?: number;
@@ -164,6 +174,7 @@ export function createCommunityPostRepository(db: CommunityDatabase): CommunityR
           from community_posts p
           join users u on u.id = p.user_id
           where p.status = ? and p.moderation_status = ?
+          ${input.authorId ? 'and p.user_id = ?' : ''}
           ${cursorSql}
           order by ${orderSql}
           limit ?`,
@@ -172,6 +183,7 @@ export function createCommunityPostRepository(db: CommunityDatabase): CommunityR
         input.userId,
         'published',
         'approved',
+        ...(input.authorId ? [input.authorId] : []),
         ...cursorBindings,
         safeLimit,
       ).all<CommunityPostRow>();

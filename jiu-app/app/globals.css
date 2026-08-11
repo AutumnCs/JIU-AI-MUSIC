@@ -178,11 +178,6 @@ body {
   font-size: 0.875rem;
 }
 
-/* Keep the community composer beside, rather than underneath, the companion button. */
-button.fixed[class~="bottom-24"][class~="right-5"] {
-  right: 5.5rem;
-}
-
 /* Hide scrollbar but keep scrollability */
 .scrollbar-hide {
   -ms-overflow-style: none;

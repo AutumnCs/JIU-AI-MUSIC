@@ -4,11 +4,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 type Comment = { id: string; userId: string; author: { displayName: string }; parentId: string | null; replyToUserId: string | null; replyToDisplayName?: string; body: string; likeCount: number; liked: boolean; createdAt: string; replies?: Comment[] };
 type Post = { id: string; userId: string; author: { displayName: string; avatarUrl?: string }; body: string; media: string[]; music: { title?: string; audioUrl: string | null; providerTaskId: string } | null; likeCount: number; favoriteCount: number; commentCount: number; liked: boolean; favorited: boolean };
 
 export default function CommunityPostPage({ params }: { params: Promise<{ postId: string }> }) {
+  const router = useRouter();
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
@@ -48,13 +50,23 @@ export default function CommunityPostPage({ params }: { params: Promise<{ postId
     setComments((current) => tree([...flatten(current), payload.comment!])); setPost({ ...post, commentCount: post.commentCount + 1 }); setBody(''); setReplyTo(null);
   };
 
+  const deletePost = async () => {
+    if (!post || !window.confirm('确定删除这条帖子吗？')) return;
+    const response = await fetch(`/api/community/posts/${post.id}`, { method: 'DELETE' });
+    if (!response.ok) {
+      setError('帖子删除失败，请重试');
+      return;
+    }
+    router.replace('/community');
+  };
+
   if (error && !post) return <main className="p-6 text-center text-red-600">{error}</main>;
   if (!post) return <main className="p-6 text-center text-[#8A7666]">加载中...</main>;
-  return <main className="min-h-screen bg-[#FFF8F0] pb-32">
+  return <main className="min-h-screen bg-[#FFF8F0] pb-[calc(10rem+env(safe-area-inset-bottom,0px))]">
     <header className="sticky top-0 z-20 flex items-center gap-4 border-b border-orange-100 bg-[#FFF8F0]/95 px-4 py-4 backdrop-blur"><Link href="/community" className="text-2xl">‹</Link><h1 className="text-xl font-black">帖子详情</h1></header>
-    <article className="mx-auto max-w-lg p-4"><div className="rounded-3xl bg-white p-5 shadow-sm"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#DFF3EF] text-xl">🐦</div><div><p className="font-black">{post.author.displayName}</p><p className="text-xs text-[#A49488]">作品分享</p></div></div><p className="mt-4 whitespace-pre-wrap leading-8 text-[#5C4D42]">{post.body}</p>{post.media.length > 0 && <div className="mt-4 grid grid-cols-2 gap-2">{post.media.map((url) => <img key={url} src={url} alt="帖子图片" className="max-h-96 w-full rounded-2xl object-cover" />)}</div>}{post.music && <div className="mt-4 rounded-2xl bg-[#FFF5E8] p-3"><p className="mb-2 font-black text-[#8A542B]">{post.music.title ?? '我的 AI 音乐作品'}</p><audio controls className="w-full" src={post.music.audioUrl ?? `/api/music/audio/${post.music.providerTaskId}`} /></div>}<div className="mt-5 flex gap-5 border-t border-orange-50 pt-4 text-sm font-bold text-[#8A7666]"><button type="button" onClick={() => void togglePost('like')} className={post.liked ? 'text-[#E87824]' : ''}>♥ {post.likeCount}</button><button type="button" onClick={() => void togglePost('favorite')} className={post.favorited ? 'text-[#E87824]' : ''}>★ {post.favoriteCount}</button><span>评论 {post.commentCount}</span></div></div>
+    <article className="mx-auto max-w-lg p-4"><div className="rounded-3xl bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#DFF3EF] text-xl">🐦</div><div><p className="font-black">{post.author.displayName}</p><p className="text-xs text-[#A49488]">作品分享</p></div></div>{post.userId === currentUserId && <button type="button" onClick={() => void deletePost()} className="rounded-full bg-[#FFF1EA] px-3 py-1.5 text-xs font-black text-[#C65D37]">删除帖子</button>}</div><p className="mt-4 whitespace-pre-wrap leading-8 text-[#5C4D42]">{post.body}</p>{post.media.length > 0 && <div className="mt-4 grid grid-cols-2 gap-2">{post.media.map((url) => <img key={url} src={url} alt="帖子图片" className="max-h-96 w-full rounded-2xl object-cover" />)}</div>}{post.music && <div className="mt-4 rounded-2xl bg-[#FFF5E8] p-3"><p className="mb-2 font-black text-[#8A542B]">{post.music.title ?? '我的 AI 音乐作品'}</p><audio controls className="w-full" src={post.music.audioUrl ?? `/api/music/audio/${post.music.providerTaskId}`} /></div>}<div className="mt-5 flex gap-5 border-t border-orange-50 pt-4 text-sm font-bold text-[#8A7666]"><button type="button" onClick={() => void togglePost('like')} className={post.liked ? 'text-[#E87824]' : ''}>♥ {post.likeCount}</button><button type="button" onClick={() => void togglePost('favorite')} className={post.favorited ? 'text-[#E87824]' : ''}>★ {post.favoriteCount}</button><span>评论 {post.commentCount}</span></div></div>
       <section className="mt-4 rounded-3xl bg-white p-5"><h2 className="font-black">评论</h2><div className="mt-4 space-y-4">{comments.map((comment) => <CommentItem key={comment.id} comment={comment} currentUserId={currentUserId} canManage={post.userId === currentUserId} onReply={setReplyTo} onChanged={(id, update) => setComments((current) => updateComment(id, update, current))} onDeleted={(id) => setComments((current) => removeComment(id, current))} />)}</div></section></article>
-    <div className="fixed bottom-0 left-0 right-0 mx-auto flex max-w-lg gap-2 border-t border-orange-100 bg-[#FFF9F2] p-3"><input value={body} onChange={(event) => setBody(event.target.value)} placeholder={replyTo ? `回复 ${replyTo.author.displayName}` : '说点什么...'} className="min-h-12 flex-1 rounded-2xl bg-white px-4 outline-none" /><button type="button" onClick={() => void addComment()} className="rounded-2xl bg-[#FF9F43] px-5 font-black text-white">发送</button></div>
+    <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-40 mx-auto flex max-w-lg gap-2 border-t border-orange-100 bg-[#FFF9F2] p-3"><input value={body} onChange={(event) => setBody(event.target.value)} placeholder={replyTo ? `回复 ${replyTo.author.displayName}` : '说点什么...'} className="min-h-12 flex-1 rounded-2xl bg-white px-4 outline-none" /><button type="button" onClick={() => void addComment()} className="rounded-2xl bg-[#FF9F43] px-5 font-black text-white">发送</button></div>
   </main>;
 }
 

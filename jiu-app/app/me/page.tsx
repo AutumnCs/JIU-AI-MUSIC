@@ -9,12 +9,15 @@ import { useGlobalStore } from '@/stores/globalStore';
 
 type Work = { id: string; taskId: string; title: string; audio: string; genre: string; mood: string; createdAt: string };
 type Notification = { id: string; type: string; actorName: string; createdAt: string };
+type MyPost = { id: string; body: string; createdAt: string; likeCount: number; commentCount: number; media: string[]; music: { title?: string } | null };
 
 export default function MePage() {
   const router = useRouter();
   const { authState, fragments, unlockedBirds, setUser, setAuthState } = useGlobalStore();
   const [works, setWorks] = useState<Work[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [posts, setPosts] = useState<MyPost[]>([]);
+  const [showPosts, setShowPosts] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(authState.user?.displayName ?? '');
   const [saving, setSaving] = useState(false);
@@ -37,7 +40,18 @@ export default function MePage() {
       const response = await fetch('/api/community/notifications');
       if (response.ok) setNotifications((await response.json() as { notifications?: Notification[] }).notifications ?? []);
     })();
+    void (async () => {
+      const response = await fetch('/api/community/posts?mine=1&sort=latest&limit=50');
+      if (response.ok) setPosts((await response.json() as { posts?: MyPost[] }).posts ?? []);
+    })();
   }, []);
+
+  const deletePost = async (postId: string) => {
+    if (!window.confirm('确定删除这条帖子吗？')) return;
+    const response = await fetch(`/api/community/posts/${postId}`, { method: 'DELETE' });
+    if (response.ok) setPosts((current) => current.filter((post) => post.id !== postId));
+    else setError('帖子删除失败，请重试');
+  };
 
   const saveName = async () => {
     const nextName = name.trim();
@@ -100,6 +114,7 @@ export default function MePage() {
 
     <section className="mt-4 grid grid-cols-3 gap-2" aria-label="我的数据"><Stat label="我的作品" value={works.length} /><Stat label="已收集" value={unlockedBirds.length} /><Stat label="羽毛碎片" value={Object.values(fragments).reduce((sum, value) => sum + value, 0)} /></section>
     <section className="jiu-card mt-4 p-5"><div className="flex items-center justify-between"><h2 className="font-black text-[#352B25]">我的作品</h2><Link href="/workshop" className="text-sm font-bold text-[#C87835]">去工坊创作</Link></div>{works.length === 0 && <p className="mt-5 rounded-2xl bg-[#FFF8F0] p-4 text-center text-sm font-bold text-[#8A7666]">还没有云端作品，先去工坊写一首吧。</p>}<div className="mt-4 space-y-3">{works.map((work) => <article key={work.id} className="rounded-2xl bg-[#FFF8F0] p-3"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><h3 className="truncate font-black text-[#4A3B32]">{work.title}</h3><p className="mt-1 text-xs text-[#A49488]">{work.genre} · {work.mood}</p></div><span className="shrink-0 rounded-full bg-white px-2 py-1 text-[11px] font-bold text-[#B96221]">已保存</span></div><audio controls preload="none" className="mt-3 w-full" src={work.audio} /><Link href={`/community?musicTaskId=${encodeURIComponent(work.taskId)}`} className="mt-2 inline-block text-xs font-black text-[#C87835]">发布到社区</Link></article>)}</div></section>
+    <section className="jiu-card mt-4 p-5"><div className="flex items-center justify-between"><h2 className="font-black text-[#352B25]">我的帖子</h2><button type="button" onClick={() => setShowPosts((current) => !current)} className="text-sm font-bold text-[#C87835]">{showPosts ? '收起' : `查看全部${posts.length ? `（${posts.length}）` : ''}`}</button></div>{showPosts && (posts.length === 0 ? <p className="mt-4 rounded-2xl bg-[#FFF8F0] p-4 text-center text-sm text-[#8A7666]">还没有发布过帖子。</p> : <div className="mt-4 space-y-3">{posts.map((post) => <article key={post.id} className="rounded-2xl bg-[#FFF8F0] p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="line-clamp-2 text-sm font-bold text-[#4A3B32]">{post.body || post.music?.title || '音乐作品分享'}</p><p className="mt-1 text-xs text-[#A49488]">♥ {post.likeCount} · 评论 {post.commentCount}</p></div><button type="button" onClick={() => void deletePost(post.id)} className="shrink-0 text-xs font-bold text-red-400">删除</button></div></article>)}</div>)}</section>
     <section className="jiu-card mt-4 p-5"><h2 className="font-black text-[#352B25]">消息中心</h2>{notifications.length === 0 ? <p className="mt-4 text-sm text-[#8A7666]">暂时没有新的互动消息。</p> : <div className="mt-3 space-y-2">{notifications.slice(0, 10).map((item) => <p key={item.id} className="rounded-xl bg-[#FFF8F0] px-3 py-2 text-sm text-[#5C4D42]">{item.actorName} {notificationText(item.type)}</p>)}</div>}</section>
     <section className="mt-4 grid grid-cols-2 gap-3"><Link href="/collection" className="jiu-card p-4 font-black text-[#4A3B32]">查看图鉴</Link><Link href="/community" className="jiu-card p-4 font-black text-[#4A3B32]">进入社区</Link></section>
   </main>;

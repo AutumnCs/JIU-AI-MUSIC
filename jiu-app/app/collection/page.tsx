@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BIRDS, Bird, CATEGORY_LABELS, FragmentType } from '@/lib/constants';
 import { useGlobalStore } from '@/stores/globalStore';
@@ -71,8 +71,43 @@ export default function CollectionPage() {
   const [showFragmentGuide, setShowFragmentGuide] = useState(false);
   const [activeCategory, setActiveCategory] =
     useState<(typeof CATEGORIES)[number]>('cute');
+  const categoryNavRef = useRef<HTMLElement | null>(null);
+  const categoryRefs = useRef<Record<(typeof CATEGORIES)[number], HTMLElement | null>>({
+    cute: null,
+    abstract: null,
+    mystery: null,
+  });
   const currentBird = BIRDS.find((bird) => bird.id === currentBirdId) ?? BIRDS[0];
   const discoveredCount = BIRDS.filter((bird) => unlockedBirds.includes(bird.id)).length;
+
+  useEffect(() => {
+    let frame = 0;
+    const syncActiveCategory = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const anchor = (categoryNavRef.current?.getBoundingClientRect().bottom ?? 0) + 12;
+        let visibleCategory: (typeof CATEGORIES)[number] = CATEGORIES[0];
+
+        for (const category of CATEGORIES) {
+          const section = categoryRefs.current[category];
+          if (!section) continue;
+          const bounds = section.getBoundingClientRect();
+          if (bounds.top <= anchor && bounds.bottom > anchor) visibleCategory = category;
+        }
+
+        setActiveCategory((current) => current === visibleCategory ? current : visibleCategory);
+      });
+    };
+
+    syncActiveCategory();
+    window.addEventListener('scroll', syncActiveCategory, { passive: true });
+    window.addEventListener('resize', syncActiveCategory);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', syncActiveCategory);
+      window.removeEventListener('resize', syncActiveCategory);
+    };
+  }, []);
 
   const jumpToCategory = (category: (typeof CATEGORIES)[number]) => {
     setActiveCategory(category);
@@ -161,7 +196,7 @@ export default function CollectionPage() {
         </button>
       </section>
 
-      <nav className={styles.categoryNav} aria-label="鸟类分类">
+      <nav ref={categoryNavRef} className={styles.categoryNav} aria-label="鸟类分类">
         {CATEGORIES.map((category) => (
           <button
             key={category}
@@ -189,6 +224,9 @@ export default function CollectionPage() {
               key={category}
               id={`collection-${category}`}
               className={`${styles.categorySection} ${meta.className}`}
+              ref={(element) => {
+                categoryRefs.current[category] = element;
+              }}
             >
               <div className={styles.categoryDecoration} aria-hidden="true" />
               <div className="relative z-10 flex items-end justify-between px-4 pb-3 pt-5">

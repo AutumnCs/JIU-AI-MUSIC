@@ -63,7 +63,8 @@ export type CommunityComment = {
 
 export type CommunityRepository = {
   createPost: (input: { userId: string; body: string; media: string[]; providerTaskId: string | null }) => Promise<CommunityPost>;
-  listPosts: (input: { userId: string; sort: 'latest' | 'hot'; cursor?: string; limit?: number }) => Promise<{ posts: CommunityPost[]; nextCursor: string | null }>;
+  deletePost: (postId: string, userId: string) => Promise<boolean>;
+  listPosts: (input: { userId: string; authorId?: string; sort: 'latest' | 'hot'; cursor?: string; limit?: number }) => Promise<{ posts: CommunityPost[]; nextCursor: string | null }>;
   findPost: (postId: string, userId: string) => Promise<CommunityPost | null>;
   togglePostInteraction: (postId: string, userId: string, kind: 'like' | 'favorite') => Promise<{ active: boolean; count: number }>;
   listComments: (postId: string, userId: string) => Promise<CommunityComment[]>;

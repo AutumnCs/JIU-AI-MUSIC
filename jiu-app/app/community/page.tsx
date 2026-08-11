@@ -99,7 +99,7 @@ export default function CommunityPage() {
       {posts.map((post) => <PostCard key={post.id} post={post} onToggle={toggle} />)}
       <div ref={sentinel} className="h-8 text-center text-xs font-bold text-[#A49488]">{loading && posts.length > 0 ? '加载中...' : cursor ? '继续下滑加载更多' : ''}</div>
     </section>
-    <button type="button" onClick={() => setShowPublish(true)} aria-label="发布帖子" className="fixed bottom-24 right-5 z-30 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#FFAD57] to-[#F47B43] text-4xl font-light text-white shadow-xl">+</button>
+    <button type="button" onClick={() => setShowPublish(true)} aria-label="发布帖子" className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-1/2 z-30 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-gradient-to-br from-[#FFAD57] to-[#F47B43] text-4xl font-light text-white shadow-xl">+</button>
     {showPublish && <PublishDialog works={works} initialTaskId={initialTaskId} onClose={() => setShowPublish(false)} onPublished={() => { setShowPublish(false); void loadPosts(true); }} />}
   </main>;
 }
