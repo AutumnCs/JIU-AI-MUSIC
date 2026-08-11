@@ -59,6 +59,8 @@ body {
   position: sticky;
   top: 0;
   z-index: 30;
+  box-sizing: border-box;
+  height: 88px;
   min-height: 88px;
   padding: max(0.65rem, env(safe-area-inset-top)) 1rem 0.65rem;
   border-bottom: 1px solid var(--jiu-border);

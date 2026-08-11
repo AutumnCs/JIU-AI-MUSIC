@@ -103,10 +103,12 @@ export default function CollectionPage() {
 
     syncActiveCategory();
     window.addEventListener('scroll', syncActiveCategory, { passive: true });
+    document.addEventListener('scroll', syncActiveCategory, { passive: true, capture: true });
     window.addEventListener('resize', syncActiveCategory);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener('scroll', syncActiveCategory);
+      document.removeEventListener('scroll', syncActiveCategory, true);
       window.removeEventListener('resize', syncActiveCategory);
     };
   }, []);
