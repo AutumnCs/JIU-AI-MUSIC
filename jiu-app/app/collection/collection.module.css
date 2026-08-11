@@ -59,11 +59,11 @@
 
 .categoryNav {
   position: sticky;
-  top: calc(6rem + env(safe-area-inset-top, 0px));
+  top: calc(5.5rem + env(safe-area-inset-top, 0px));
   z-index: 25;
   display: flex;
   gap: 0.5rem;
-  margin-top: 1rem;
+  margin-top: 0;
   overflow-x: auto;
   padding: 0.65rem 1rem;
   border-top: 1px solid rgba(231, 215, 198, 0.64);

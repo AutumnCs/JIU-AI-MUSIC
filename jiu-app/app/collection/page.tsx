@@ -92,7 +92,9 @@ export default function CollectionPage() {
           const section = categoryRefs.current[category];
           if (!section) continue;
           const bounds = section.getBoundingClientRect();
-          if (bounds.top <= anchor && bounds.bottom > anchor) visibleCategory = category;
+          // Use the last section whose top crossed the anchor. Requiring the
+          // bottom to remain below it breaks on the final section at max scroll.
+          if (bounds.top <= anchor) visibleCategory = category;
         }
 
         setActiveCategory((current) => current === visibleCategory ? current : visibleCategory);
