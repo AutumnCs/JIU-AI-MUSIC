@@ -5,6 +5,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { readJson } from '@/lib/http-json';
 
 type Post = {
   id: string;
@@ -43,7 +44,7 @@ export default function CommunityPage() {
       const query = new URLSearchParams({ sort, limit: '12' });
       if (!reset && cursor) query.set('cursor', cursor);
       const response = await fetch(`/api/community/posts?${query}`);
-      const payload = await response.json() as { posts?: Post[]; nextCursor?: string | null; message?: string };
+      const payload = await readJson<{ posts?: Post[]; nextCursor?: string | null; message?: string }>(response) ?? {};
       if (!response.ok) throw new Error(payload.message ?? '加载失败');
       setPosts((current) => reset ? payload.posts ?? [] : [...current, ...(payload.posts ?? [])]);
       setCursor(payload.nextCursor ?? null);
@@ -61,7 +62,7 @@ export default function CommunityPage() {
   useEffect(() => {
     void (async () => {
       const response = await fetch('/api/music/tasks');
-      if (response.ok) setWorks((await response.json() as { works?: Work[] }).works ?? []);
+      if (response.ok) setWorks((await readJson<{ works?: Work[] }>(response))?.works ?? []);
     })();
   }, []);
   useEffect(() => {

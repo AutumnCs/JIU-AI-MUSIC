@@ -1,108 +1,25 @@
 'use client';
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { useGlobalStore } from '@/stores/globalStore';
-import { BIRDS } from '@/lib/constants';
+import { BIRDS, LEVELS } from '@/lib/constants';
 import { BirdPortrait } from '@/components/collection/BirdPortrait';
+import type { AgentReply, ChatMessage, TutorContext, TutorPage, TutorPromptMeta } from '@/lib/assistant/types';
+import { buildTutorHistory, readAssistantMemory, readTopicMemory, rememberTutorTurn, writeAssistantMemory, writeTopicMemory } from '@/lib/assistant/memory';
+import { getActiveUserId } from '@/lib/auth/active-user';
 
-const QUICK_QUESTIONS = [
-  '什么是音高？',
-  '节拍是什么？',
-  'Do Re Mi 是什么？',
-  '怎么创作音乐？',
-  '鸟为什么会唱歌？',
-];
+const prompts = ['什么是音高？', '节拍像什么？', '考考我一个音乐问题'];
+function pageOf(path: string): TutorPage { if (path.startsWith('/academy')) return 'academy'; if (path.startsWith('/workshop')) return 'workshop'; if (path.startsWith('/collection')) return 'collection'; if (path.startsWith('/community')) return 'community'; return 'home'; }
+async function* events(response: Response) { if (!response.body) throw new Error('小鸟暂时没有收到回答'); const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = ''; while (true) { const { value, done } = await reader.read(); buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done }); const chunks = buffer.split('\n\n'); buffer = chunks.pop() ?? ''; for (const chunk of chunks) { const event = chunk.match(/^event:\s*(.+)$/m)?.[1] ?? 'message'; const data = chunk.match(/^data:\s*(.+)$/m)?.[1]; if (data) yield { event, data }; } if (done) break; } }
 
 export function BirdCompanion() {
-  const pathname = usePathname();
-  const { currentBirdId } = useGlobalStore();
-  const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{ role: string; text: string }[]>([]);
-  const bird = BIRDS.find((b) => b.id === currentBirdId) || BIRDS[0];
-
-  const handleQuestion = (q: string) => {
-    setMessages((prev) => [...prev, { role: 'user', text: q }]);
-    setTimeout(() => {
-      const answers: Record<string, string> = {
-        '什么是音高？': '声音有高有低，就像楼梯一样。小鸟唱得高，大象叫得低！',
-        '节拍是什么？': '就像你的心跳一样，咚、咚、咚，很稳定的节奏就是节拍！',
-        'Do Re Mi 是什么？': '这是音乐的七个小伙伴中的前三个，就像 ABC 是字母歌的开头一样！',
-        '怎么创作音乐？': '去工坊写下一句话，再选曲风和心情，我就能陪你把故事变成一首歌！',
-        '鸟为什么会唱歌？': '鸟儿唱歌是为了和朋友聊天、标记领地，和你唱歌为了开心是一样的！',
-      };
-      setMessages((prev) => [
-        ...prev,
-        { role: 'bird', text: answers[q] || '好问题！让我们一起去探索音乐的世界吧！' },
-      ]);
-    }, 800);
-  };
-
-  if (pathname.startsWith('/workshop')) return null;
-
-  return (
-    <div className="fixed bottom-20 right-3 z-50">
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            className="mb-3 w-72 rounded-2xl bg-white shadow-xl border border-gray-100 overflow-hidden"
-          >
-            {/* Header */}
-            <div className="bg-gradient-to-r from-orange-100 to-blue-50 px-4 py-2 flex items-center gap-2">
-              <span className="text-lg">{bird.name}</span>
-              <span className="text-xs text-gray-500">· 伴学助手</span>
-            </div>
-
-            {/* Messages */}
-            <div className="h-48 overflow-y-auto p-3 space-y-2 text-sm">
-              {messages.length === 0 && (
-                <div className="text-gray-400 text-center py-4">
-                  点击下方问题向我提问吧！
-                </div>
-              )}
-              {messages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div
-                    className={`max-w-[80%] px-3 py-2 rounded-2xl ${
-                      msg.role === 'user'
-                        ? 'bg-orange-100 text-gray-800 rounded-br-sm'
-                        : 'bg-gray-100 text-gray-700 rounded-bl-sm'
-                    }`}
-                  >
-                    {msg.text}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Quick Questions */}
-            <div className="border-t border-gray-100 p-2 flex flex-wrap gap-1.5">
-              {QUICK_QUESTIONS.map((q) => (
-                <button
-                  key={q}
-                  onClick={() => handleQuestion(q)}
-                  className="text-xs bg-orange-50 text-orange-600 px-2.5 py-1 rounded-full hover:bg-orange-100 active:scale-95 transition-all"
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-14 h-14 overflow-hidden rounded-full bg-gradient-to-br from-orange-50 to-emerald-50 shadow-lg border-2 border-orange-200 flex items-center justify-center"
-        aria-label={isOpen ? '收起伴学助手' : `向${bird.name}提问`}
-      >
-        <BirdPortrait bird={bird} className="h-full w-full" />
-      </motion.button>
-    </div>
-  );
+  const pathname = usePathname(); const { currentBirdId, academyProgress, academySession, authState } = useGlobalStore(); const userId = getActiveUserId(authState); const page = pageOf(pathname); const bird = BIRDS.find((item) => item.id === currentBirdId) ?? BIRDS[0]; const level = LEVELS.find((item) => item.id === academySession.levelId) ?? LEVELS[0];
+  const [open, setOpen] = useState(false); const [expanded, setExpanded] = useState(false); const [input, setInput] = useState(''); const [messages, setMessages] = useState<ChatMessage[]>([]); const [memory, setMemory] = useState(() => readTopicMemory(userId)); const [loading, setLoading] = useState(false); const [error, setError] = useState('');
+  useEffect(() => { setMessages(readAssistantMemory(userId)); setMemory(readTopicMemory(userId)); }, [userId]); useEffect(() => { if (messages.length) writeAssistantMemory(userId, messages); }, [messages, userId]); useEffect(() => { writeTopicMemory(userId, memory); }, [memory, userId]);
+  const context = useMemo<TutorContext>(() => { const progress = academySession.levelId ? academyProgress[academySession.levelId] : undefined; return { page, birdName: bird.name, levelId: page === 'academy' ? level.id : undefined, levelName: page === 'academy' ? level.name : undefined, levelGoal: page === 'academy' ? level.subtitle : undefined, levelTip: page === 'academy' ? level.companionTip : undefined, wrongStreak: academySession.wrongStreak, progress: progress ? { completed: progress.completed, bestScore: progress.bestScore, attempts: progress.attempts } : undefined }; }, [academyProgress, academySession, bird.name, level, page]);
+  const topic = page === 'academy' ? `academy-level-${level.id}` : memory[0]?.topic; const quick = page === 'academy' ? [{ label: '这一关要学什么？', prompt: '这一关要学什么？', intent: 'explain' as const }, { label: '再用一个例子解释', prompt: '再用一个生活中的例子解释刚才的内容', intent: 'example' as const }, { label: '考考我', prompt: '考考我刚才学到的内容', intent: 'practice' as const }] : prompts.map((prompt) => ({ label: prompt, prompt, intent: 'explain' as const }));
+  const send = async (value = input, meta?: TutorPromptMeta) => { const message = value.trim(); if (!message || loading) return; const history = buildTutorHistory(messages); setInput(''); setError(''); setLoading(true); setMessages((current) => [...current, { role: 'user', content: message }, { role: 'assistant', content: '...' }]); try { const response = await fetch('/api/assistant/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message, history, memory, promptMeta: { topic, ...meta }, context }) }); if (!response.ok) throw new Error('小鸟暂时没有听清'); let text = ''; let reply: Partial<AgentReply> = {}; for await (const event of events(response)) { const data = JSON.parse(event.data) as { text?: string; suggestions?: AgentReply['suggestions']; topic?: string }; if (event.event === 'chunk' && data.text) { text += data.text; setMessages((current) => current.map((item, index) => index === current.length - 1 ? { role: 'assistant', content: text } : item)); } if (event.event === 'done') reply = data; } const usedTopic = reply.topic ?? topic; if (usedTopic) setMemory((current) => rememberTutorTurn(current, usedTopic, text, { repeated: history.length > 0 })); setMessages((current) => current.map((item, index) => index === current.length - 1 ? { role: 'assistant', content: JSON.stringify({ text, suggestions: reply.suggestions }) } : item)); } catch (cause) { setMessages((current) => current.slice(0, -1)); setError(cause instanceof Error ? cause.message : '请稍后再试'); } finally { setLoading(false); } };
+  const assistant = (content: string) => { try { const parsed = JSON.parse(content) as { text?: string; suggestions?: AgentReply['suggestions'] }; return <><p>{parsed.text ?? content}</p>{parsed.suggestions?.map((item, index) => <button key={index} type="button" onClick={() => item.kind === 'navigate' ? window.location.assign(item.href) : void send(item.prompt, { intent: 'example' })} className="mr-1 mt-2 rounded-full bg-white px-2 py-1 text-xs font-bold text-orange-700">{item.label}</button>)}</>; } catch { return content; } };
+  return <div className="fixed bottom-20 right-3 z-50"><AnimatePresence>{open && <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className={`mb-3 flex flex-col overflow-hidden rounded-2xl bg-white shadow-xl ${expanded ? 'fixed inset-3 h-[calc(100vh-6rem)] sm:inset-x-[12%]' : 'w-[min(90vw,22rem)]'}`}><div className="flex items-center justify-between bg-orange-100 px-4 py-2"><span className="text-sm font-bold">{bird.name} · 音乐助教</span><button type="button" onClick={() => setExpanded((value) => !value)} className="text-xs">{expanded ? '收起' : '展开'}</button></div><div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3 text-sm">{messages.map((item, index) => <div key={index} className={`flex ${item.role === 'user' ? 'justify-end' : ''}`}><div className={`max-w-[85%] rounded-2xl px-3 py-2 ${item.role === 'user' ? 'bg-orange-100' : 'bg-gray-100'}`}>{item.role === 'assistant' ? assistant(item.content) : item.content}</div></div>)}{loading && <div className="text-xs text-gray-400">小鸟正在回答……</div>}{error && <div className="text-xs text-red-500">{error}</div>}</div><div className="border-t p-2"><div className="mb-2 flex flex-wrap gap-1">{quick.map((item) => <button key={item.label} type="button" onClick={() => void send(item.prompt, { intent: item.intent })} className="rounded-full bg-orange-50 px-2 py-1 text-xs text-orange-700">{item.label}</button>)}</div><div className="flex gap-2"><input value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void send(); }} placeholder="写下你的音乐问题…" className="min-w-0 flex-1 rounded-xl border px-3 py-2" /><button type="button" disabled={loading || !input.trim()} onClick={() => void send()} className="rounded-xl bg-orange-500 px-3 text-white">发送</button></div></div></motion.div>}</AnimatePresence><button type="button" onClick={() => setOpen((value) => !value)} className="h-14 w-14 overflow-hidden rounded-full border-2 border-orange-200 bg-white shadow-lg"><BirdPortrait bird={bird} className="h-full w-full" /></button></div>;
 }

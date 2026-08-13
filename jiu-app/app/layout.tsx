@@ -20,6 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
+    if (pathname === '/login') {
+      setMounted(true);
+      return;
+    }
     let cancelled = false;
 
     void (async () => {
@@ -63,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     })();
 
     return () => { cancelled = true; };
-  }, [init]);
+  }, [init, pathname]);
 
   if (!mounted) {
     return (

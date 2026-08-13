@@ -6,14 +6,12 @@ import { listMusicTasks } from '@/lib/server/db';
 export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
-  const { user } = await getCurrentUserFromRequest(request);
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const tasks = await listMusicTasks(user.id);
-  return NextResponse.json({
-    works: tasks
-      .filter((task) => task.status === 'success' && task.audioUrl)
-      .map((task) => ({
+  try {
+    const { user } = await getCurrentUserFromRequest(request);
+    if (!user) return NextResponse.json({ error: 'Unauthorized', works: [] }, { status: 401 });
+    const tasks = await listMusicTasks(user.id);
+    return NextResponse.json({
+      works: tasks.filter((task) => task.status === 'success' && task.audioUrl).map((task) => ({
         id: task.id,
         taskId: task.providerTaskId,
         title: titleFromRequest(task.requestPayload),
@@ -25,7 +23,11 @@ export async function GET(request: Request) {
         createdAt: task.createdAt,
         sourceProvider: 'upstream' as const,
       })),
-  });
+    });
+  } catch (cause) {
+    console.error('music_tasks_list_failed', cause);
+    return NextResponse.json({ error: '暂时无法加载作品', works: [] }, { status: 500 });
+  }
 }
 
 function titleFromRequest(payload: Record<string, unknown>): string {

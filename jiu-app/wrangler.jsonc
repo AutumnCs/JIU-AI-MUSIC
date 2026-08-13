@@ -1,4 +1,5 @@
 {
+	
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "jiu-bird-collection",
 	"main": ".open-next/worker.js",
@@ -23,6 +24,11 @@
 		{
 			"binding": "MUSIC_BUCKET",
 			"bucket_name": "jiu-music-audio"
+		},
+		{
+			"bucket_name": "jiu-music-audio",
+			"binding": "jiu_music_audio",
+			"remote": true
 		}
 	],
 	"services": [
@@ -30,5 +36,29 @@
 			"binding": "WORKER_SELF_REFERENCE",
 			"service": "jiu-bird-collection"
 		}
-	]
+	],
+	"vars": {
+		"ASSISTANT_PROVIDER": "openai-compatible",
+		"ASSISTANT_BASE_URL": "https://api.deepseek.com",
+		"ASSISTANT_MODEL": "deepseek-v4-flash"
+	},
+	"placement": {
+		"mode": "smart"
+	},
+
+	"observability": {
+		"enabled": false,
+		"head_sampling_rate": 1,
+		"logs": {
+		"enabled": true,
+		"head_sampling_rate": 1,
+		"persist": true,
+		"invocation_logs": true
+		},
+		"traces": {
+		"enabled": false,
+		"persist": true,
+		"head_sampling_rate": 1
+		}
+	}
 }

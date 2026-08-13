@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { AuthUser } from '@/lib/auth/types';
 import { useGlobalStore } from '@/stores/globalStore';
+import { readJson } from '@/lib/http-json';
 
 type Work = { id: string; taskId: string; title: string; audio: string; genre: string; mood: string; createdAt: string };
 type Notification = { id: string; type: string; actorName: string; createdAt: string };
@@ -31,18 +32,18 @@ export default function MePage() {
     void (async () => {
       try {
         const response = await fetch('/api/music/tasks');
-        const payload = await response.json() as { works?: Work[]; error?: string };
+        const payload = await readJson<{ works?: Work[]; error?: string }>(response) ?? {};
         if (!response.ok) throw new Error(payload.error ?? '作品加载失败');
         setWorks(payload.works ?? []);
       } catch (cause) { setError(cause instanceof Error ? cause.message : '作品暂时无法加载'); }
     })();
     void (async () => {
       const response = await fetch('/api/community/notifications');
-      if (response.ok) setNotifications((await response.json() as { notifications?: Notification[] }).notifications ?? []);
+      if (response.ok) setNotifications((await readJson<{ notifications?: Notification[] }>(response))?.notifications ?? []);
     })();
     void (async () => {
       const response = await fetch('/api/community/posts?mine=1&sort=latest&limit=50');
-      if (response.ok) setPosts((await response.json() as { posts?: MyPost[] }).posts ?? []);
+      if (response.ok) setPosts((await readJson<{ posts?: MyPost[] }>(response))?.posts ?? []);
     })();
   }, []);
 
